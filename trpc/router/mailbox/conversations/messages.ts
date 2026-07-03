@@ -5,7 +5,6 @@ import { z } from "zod";
 import { assertDefined } from "@/components/utils/assert";
 import { db } from "@/db/client";
 import { conversationMessages } from "@/db/schema";
-import { triggerEvent } from "@/jobs/trigger";
 import { createConversationEmbedding } from "@/lib/ai/conversationEmbedding";
 import { createReply, sanitizeBody } from "@/lib/data/conversationMessage";
 import { getGmailSupportEmail } from "@/lib/data/gmailSupportEmail";
@@ -123,11 +122,6 @@ export const messagesRouter = {
           message: "Message not found or not part of this conversation",
         });
       }
-
-      await triggerEvent("messages/flagged.bad", {
-        messageId: id,
-        reason: reason || null,
-      });
     }),
   forward: conversationProcedure
     .input(

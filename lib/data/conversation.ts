@@ -13,7 +13,6 @@ import { MINI_MODEL } from "@/lib/ai/core";
 import { extractAddresses } from "@/lib/emails";
 import { conversationChannelId, conversationsListChannelId } from "@/lib/realtime/channels";
 import { publishToRealtime } from "@/lib/realtime/publish";
-import { updateVipMessageOnClose } from "@/lib/slack/vipNotifications";
 import { emailKeywordsExtractor } from "../emailKeywordsExtractor";
 import { searchEmailsByKeywords } from "../emailSearchService/searchEmailsByKeywords";
 import { captureExceptionAndLog } from "../shared/sentry";
@@ -134,10 +133,7 @@ export const updateConversation = async (
   }
 
   if (current.status !== "closed" && updatedConversation?.status === "closed") {
-    await updateVipMessageOnClose(updatedConversation.id, byUserId);
-
     await triggerEvent("conversations/embedding.create", { conversationSlug: updatedConversation.slug });
-    await triggerEvent("conversations/closed.extract-faqs", { conversationId: updatedConversation.id });
 
     // Keep Gmail inbox in sync with Helper close actions.
     // Skip if there's a pending outgoing email - postEmailToGmail will archive after sending.
@@ -339,7 +335,7 @@ export const serializeConversationWithMessages = async (
         }
       : null,
     draft: null,
-    messages: await getMessages(conversation.id, mailbox),
+    messages: await getMessages(conversation.id),
     cc: (await getNonSupportParticipants(conversation)).join(", "),
   };
 };

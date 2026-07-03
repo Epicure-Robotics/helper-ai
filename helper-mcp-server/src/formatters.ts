@@ -4,7 +4,6 @@ import type {
   HelperNoteResult,
   HelperReplyResult,
   HelperResponseFormat,
-  HelperShopifyLookupResult,
   HelperTeamMember,
   HelperTeamMembersResult,
   HelperTicketDetail,
@@ -31,11 +30,6 @@ const formatCustomer = (ticket: {
     ? `${ticket.customer.name}${ticket.customer.email ? ` <${ticket.customer.email}>` : ""}`
     : (ticket.customer.email ?? "unknown customer");
   return ticket.customer.is_vip ? `${label} [VIP]` : label;
-};
-
-const formatShopifyCustomer = (customer: { first_name: string | null; last_name: string | null; email: string }) => {
-  const name = [customer.first_name, customer.last_name].filter(Boolean).join(" ").trim();
-  return name ? `${name} <${customer.email}>` : customer.email;
 };
 
 const formatTimelineEntry = (entry: HelperTimelineEntry, index: number) => {
@@ -169,38 +163,4 @@ export const formatTicketMutation = (
   }
 
   return `${metadata.join("\n")}\n\n${formatTicket(result.ticket)}`;
-};
-
-export const formatShopifyLookup = (result: HelperShopifyLookupResult) => {
-  const header = [
-    `Acting as ${formatActor(result.acting_as.display_name, result.acting_as.email)}`,
-    `Shopify lookup: ${result.lookup.mode}=${result.lookup.value}`,
-  ];
-
-  if (!result.configured) {
-    return [...header, "Shopify integration is not configured."].join("\n\n");
-  }
-
-  if (result.error) {
-    return [...header, `error: ${result.error}`].join("\n\n");
-  }
-
-  if (!result.found) {
-    return [...header, "No Shopify customer or orders matched that lookup."].join("\n\n");
-  }
-
-  const customerSection = result.customer
-    ? `customer: ${formatShopifyCustomer(result.customer)} | orders_count=${result.customer.orders_count} | total_spent=${result.customer.total_spent}`
-    : "customer: none";
-
-  const ordersSection = result.orders.length
-    ? result.orders
-        .map(
-          (order, index) =>
-            `${index + 1}. ${order.name} | ${order.financial_status} | ${order.fulfillment_status ?? "unfulfilled"} | ${order.total_price} ${order.currency}\nemail: ${order.email}\nline_items: ${order.line_items.length} | fulfillments: ${order.fulfillments.length}\nadmin_url: ${order.admin_url}`,
-        )
-        .join("\n\n")
-    : "No orders found for this Shopify customer.";
-
-  return [...header, customerSection, `Returned ${result.total_orders} order(s).`, ordersSection].join("\n\n");
 };

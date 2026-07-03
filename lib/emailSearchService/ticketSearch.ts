@@ -1,4 +1,4 @@
-import { and, desc, eq, exists, ilike, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   conversationEvents,
@@ -8,12 +8,6 @@ import {
   notes,
   platformCustomers,
 } from "@/db/schema";
-import {
-  extractOrderNumbers,
-  isShopifyConfigured,
-  searchOrderByName,
-  searchOrdersByTrackingNumber,
-} from "@/lib/shopify/client";
 import { extractHashedWordsFromEmail } from "./extractHashedWordsFromEmail";
 
 const MAX_SOURCE_RESULTS = 120;
@@ -21,7 +15,7 @@ const MAX_RETURNED_MATCHES = 200;
 const SEARCHABLE_STATUSES = ["open", "waiting_on_customer", "closed", "spam", "check_back_later", "ignored"] as const;
 
 type ConversationStatus = (typeof SEARCHABLE_STATUSES)[number];
-type MatchSource = "conversation" | "message" | "note" | "event" | "shopify";
+type MatchSource = "conversation" | "message" | "note" | "event";
 export type TicketMatchField =
   | "conversation_id"
   | "slug"
@@ -32,7 +26,6 @@ export type TicketMatchField =
   | "note"
   | "event"
   | "issue_group"
-  | "order"
   | "tracking"
   | "carrier"
   | "country";
@@ -41,7 +34,6 @@ type TicketSearchOperators = {
   from: string[];
   subject: string[];
   status: ConversationStatus[];
-  order: string[];
   tracking: string[];
   carrier: string[];
   country: string[];
@@ -114,7 +106,6 @@ const OPERATOR_ALIASES: Record<string, keyof TicketSearchOperators> = {
   email: "from",
   subject: "subject",
   status: "status",
-  order: "order",
   tracking: "tracking",
   carrier: "carrier",
   country: "country",
@@ -201,7 +192,6 @@ const baseFieldScore: Record<TicketMatchField, number> = {
   note: 90,
   event: 80,
   issue_group: 95,
-  order: 170,
   tracking: 175,
   carrier: 85,
   country: 80,
@@ -211,16 +201,13 @@ const scoreMatch = ({
   field,
   exact,
   updatedAt,
-  source,
 }: {
   field: TicketMatchField;
   exact: boolean;
   updatedAt: Date | string | null | undefined;
-  source: MatchSource;
 }) => {
   let score = baseFieldScore[field] + recencyBoost(updatedAt);
   if (exact) score += 40;
-  if (source === "shopify") score += 20;
   return score;
 };
 
@@ -257,7 +244,6 @@ export const parseTicketSearchQuery = (rawQuery: string): ParsedTicketSearchQuer
     from: [],
     subject: [],
     status: [],
-    order: [],
     tracking: [],
     carrier: [],
     country: [],
@@ -288,8 +274,6 @@ export const parseTicketSearchQuery = (rawQuery: string): ParsedTicketSearchQuer
       operators.slug.push(value.toLowerCase());
     } else if (alias === "tracking") {
       operators.tracking.push(normalizeTrackingNumber(value));
-    } else if (alias === "order") {
-      operators.order.push(value.startsWith("#") ? value : `#${value.replace(/^#/, "")}`);
     } else if (alias === "from") {
       operators.from.push(value.toLowerCase());
     } else {
@@ -315,19 +299,14 @@ export const parseTicketSearchQuery = (rawQuery: string): ParsedTicketSearchQuer
     const parsedId = Number.parseInt(freeText, 10);
     if (Number.isInteger(parsedId) && parsedId > 0) {
       operators.id.push(parsedId);
-      operators.order.push(`#${parsedId}`);
     }
   }
 
-  for (const orderNumber of extractOrderNumbers(rawQuery)) {
-    operators.order.push(`#${orderNumber}`);
-  }
   operators.tracking.push(...extractPotentialTrackingNumbers(rawQuery));
 
   operators.from = unique(operators.from);
   operators.subject = unique(operators.subject);
   operators.status = unique(operators.status);
-  operators.order = unique(operators.order);
   operators.tracking = unique(operators.tracking);
   operators.carrier = unique(operators.carrier.map((value) => value.toLowerCase()));
   operators.country = unique(operators.country.map((value) => value.toLowerCase()));
@@ -397,7 +376,7 @@ const buildConversationMatch = (
   createdAt: toISOStringOrNull(createdAt),
   snippet,
   matchedText,
-  score: scoreMatch({ field: matchedField, exact, updatedAt: row.updatedAt, source }),
+  score: scoreMatch({ field: matchedField, exact, updatedAt: row.updatedAt }),
   exact,
   metadata,
 });
@@ -618,67 +597,6 @@ export async function findTicketMatches({
     }
   };
 
-  const addShopifyConversationMatches = async ({
-    matchedField,
-    matchedText,
-    customerEmail,
-    snippet,
-    metadata,
-  }: {
-    matchedField: TicketMatchField;
-    matchedText: string;
-    customerEmail: string | null;
-    snippet: string;
-    metadata: Record<string, string | number | boolean | null>;
-  }) => {
-    if (!customerEmail) return;
-
-    const rows = await db
-      .select(conversationSelection)
-      .from(conversations)
-      .leftJoin(platformCustomers, eq(conversations.emailFrom, platformCustomers.email))
-      .leftJoin(issueGroups, eq(conversations.issueGroupId, issueGroups.id))
-      .where(
-        andAll(
-          baseConversationWhere,
-          orAll(
-            eq(conversations.emailFrom, customerEmail),
-            ilike(conversations.subject, `%${matchedText}%`),
-            exists(
-              db
-                .select({ id: conversationMessages.id })
-                .from(conversationMessages)
-                .where(
-                  and(
-                    eq(conversationMessages.conversationId, conversations.id),
-                    isNull(conversationMessages.deletedAt),
-                    ilike(conversationMessages.cleanedUpText, `%${matchedText}%`),
-                  ),
-                ),
-            ),
-          ),
-        ),
-      )
-      .orderBy(desc(conversations.updatedAt))
-      .limit(MAX_SOURCE_RESULTS);
-
-    for (const row of rows) {
-      pushMatch(
-        buildConversationMatch(row, {
-          source: "shopify",
-          matchedField,
-          itemId: null,
-          role: null,
-          createdAt: row.createdAt,
-          matchedText,
-          exact: true,
-          snippet,
-          metadata,
-        }),
-      );
-    }
-  };
-
   if (parsedQuery.operators.id.length) {
     await searchConversationMetadata({
       phrases: parsedQuery.operators.id.map((id) => `${id}`),
@@ -714,71 +632,8 @@ export async function findTicketMatches({
     });
   }
 
-  if (parsedQuery.operators.order.length && isShopifyConfigured()) {
-    for (const orderName of parsedQuery.operators.order) {
-      const response = await searchOrderByName(orderName);
-      const order = response.orders[0];
-      if (!order) continue;
-      const trackingNumbers = unique(
-        (order.fulfillments ?? []).flatMap((fulfillment) =>
-          [fulfillment.tracking_number, ...fulfillment.tracking_numbers].filter(
-            (tracking): tracking is string => Boolean(tracking),
-          ),
-        ),
-      );
-      await addShopifyConversationMatches({
-        matchedField: "order",
-        matchedText: order.name,
-        customerEmail: response.customer?.email ?? order.customer.email ?? null,
-        snippet: snippetFromText(
-          `Order ${order.name} • ${order.financial_status} • ${order.fulfillment_status ?? "unfulfilled"} • ${
-            trackingNumbers.length ? `Tracking ${trackingNumbers.join(", ")}` : "No tracking yet"
-          }`,
-          order.name,
-        ) ?? `Order ${order.name}`,
-        metadata: {
-          orderName: order.name,
-          financialStatus: order.financial_status,
-          fulfillmentStatus: order.fulfillment_status ?? null,
-          customerEmail: response.customer?.email ?? order.customer.email ?? null,
-        },
-      });
-    }
-  }
-
   if (parsedQuery.operators.tracking.length) {
     await searchMessageText(parsedQuery.operators.tracking, "tracking");
-    if (![...resultMap.values()].some((match) => match.matchedField === "tracking") && isShopifyConfigured()) {
-      for (const trackingNumber of parsedQuery.operators.tracking) {
-        const response = await searchOrdersByTrackingNumber(trackingNumber);
-        const order = response.orders[0];
-        if (!order) continue;
-        const fulfillment = (order.fulfillments ?? []).find((candidate) =>
-          [candidate.tracking_number, ...candidate.tracking_numbers]
-            .filter((tracking): tracking is string => Boolean(tracking))
-            .map((tracking) => normalizeTrackingNumber(tracking))
-            .includes(normalizeTrackingNumber(trackingNumber)),
-        );
-        await addShopifyConversationMatches({
-          matchedField: "tracking",
-          matchedText: normalizeTrackingNumber(trackingNumber),
-          customerEmail: response.customer?.email ?? order.customer.email ?? null,
-          snippet:
-            snippetFromText(
-              `Tracking ${trackingNumber} • ${order.name} • ${fulfillment?.tracking_company ?? "Carrier unknown"} • ${
-                fulfillment?.shipment_status ?? fulfillment?.latest_event_status ?? order.fulfillment_status ?? "in transit"
-              }`,
-              trackingNumber,
-            ) ?? `Tracking ${trackingNumber}`,
-          metadata: {
-            orderName: order.name,
-            carrier: fulfillment?.tracking_company ?? null,
-            shipmentStatus: fulfillment?.shipment_status ?? fulfillment?.latest_event_status ?? null,
-            customerEmail: response.customer?.email ?? order.customer.email ?? null,
-          },
-        });
-      }
-    }
   }
 
   if (parsedQuery.operators.carrier.length) {

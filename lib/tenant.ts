@@ -24,7 +24,7 @@ export async function getCurrentMailbox(tenantId: number = DEFAULT_TENANT_ID): P
 }
 
 /**
- * Loaded relations (Gmail support email, Slack workspace) expose `mailboxes[]`;
+ * Loaded relations (e.g. Gmail support email) expose `mailboxes[]`;
  * single-tenant uses the first row.
  */
 export function getPrimaryMailboxFromRelation<T>(row: { mailboxes?: T[] | null } | null | undefined): T | null {

@@ -37,7 +37,7 @@ const EMBEDDING_MODEL_FALLBACK = "openai/text-embedding-3-small";
  * similar website pages, injected org prompts). Heavier “thinking” belongs in optional reasoning paths, not the default reply.
  */
 export const CHAT_MODEL = _GPT_4O_MINI_MODEL;
-/** Slack agent, categorization, and other lightweight tool-calling / triage flows. */
+/** Categorization and other lightweight tool-calling / triage flows. */
 export const MINI_MODEL = _GPT_4O_MINI_MODEL;
 /** Inbox email drafts. */
 export const DRAFT_MODEL = _GPT_4O_MINI_MODEL;

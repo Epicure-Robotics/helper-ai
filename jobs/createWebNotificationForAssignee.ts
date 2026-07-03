@@ -2,9 +2,7 @@ import { eq } from "drizzle-orm";
 import webpush from "web-push";
 import { db } from "@/db/client";
 import {
-  conversationMessages,
   conversations,
-  notes,
   pushSubscriptions,
   userProfiles,
   webNotifications,
@@ -13,7 +11,6 @@ import {
 import { env } from "@/lib/env";
 import { publishToRealtime } from "@/lib/realtime/publish";
 import { captureExceptionAndLog } from "@/lib/shared/sentry";
-import { getLatestBotMessageInDM, getSlackUsersByEmail, sendSlackDM } from "@/lib/slack/client";
 
 type CreateWebNotificationPayload = {
   conversationId: number;
@@ -104,27 +101,6 @@ export const createWebNotificationForAssignee = async (payload: CreateWebNotific
     if (type === "internal_note" && notificationPrefs.notifyOnNote !== true) {
       console.log("[createWebNotificationForAssignee] User has not enabled note notifications");
       return { success: false, reason: "User has not enabled note notifications" };
-    }
-
-    // Fetch additional content for Slack (message body or note body)
-    let additionalContent = "";
-    if (messageId) {
-      const message = await db.query.conversationMessages.findFirst({
-        where: eq(conversationMessages.id, messageId),
-        columns: { body: true, cleanedUpText: true },
-      });
-      additionalContent = message?.cleanedUpText || message?.body || "";
-      // Strip HTML tags if cleanedUpText is missing and body has HTML (basic check)
-      if (!message?.cleanedUpText && additionalContent.includes("<")) {
-        // simple strip tags for safety, though body should be text mostly unless specified
-        additionalContent = additionalContent.replace(/<[^>]*>?/gm, "");
-      }
-    } else if (noteId) {
-      const note = await db.query.notes.findFirst({
-        where: eq(notes.id, noteId),
-        columns: { body: true },
-      });
-      additionalContent = note?.body || "";
     }
 
     // Generate notification content
@@ -254,7 +230,6 @@ export const createWebNotificationForAssignee = async (payload: CreateWebNotific
       } catch (error) {
         console.error("[createWebNotificationForAssignee] Error in push notification flow:", error);
         captureExceptionAndLog(error);
-        // Continue to Slack DM even if push fails
       }
     } else {
       console.log(
@@ -265,101 +240,7 @@ export const createWebNotificationForAssignee = async (payload: CreateWebNotific
       );
     }
 
-    // Send Slack DM notification if enabled
-    if (notificationPrefs.slackDMEnabled === true) {
-      try {
-        console.log("[createWebNotificationForAssignee] Slack DM enabled, attempting to send");
-
-        // Get the mailbox to check if Slack is connected
-        const mailbox = await db.query.mailboxes.findFirst({
-          columns: {
-            slackBotToken: true,
-            slackBotUserId: true,
-          },
-        });
-
-        if (mailbox?.slackBotToken && mailbox.slackBotUserId && assignee.user?.email) {
-          // Get the Slack user ID for the assignee
-          const slackUsersByEmail = await getSlackUsersByEmail(mailbox.slackBotToken);
-          const slackUserId = slackUsersByEmail.get(assignee.user.email);
-
-          if (slackUserId) {
-            console.log("[createWebNotificationForAssignee] Sending Slack DM to user:", slackUserId);
-
-            const slackText = additionalContent
-              ? `*${title}*\n${body}\n\n>${additionalContent.replace(/\n/g, "\n>")}\n\n<${actionUrl}|View Conversation>`
-              : `*${title}*\n${body}\n\n<${actionUrl}|View Conversation>`;
-
-            // First, send the message to get the channel ID (or we could open the channel first)
-            // We'll open the channel, fetch history, then send threaded if possible
-            const { WebClient } = await import("@slack/web-api");
-            const client = new WebClient(mailbox.slackBotToken);
-
-            // Open DM channel
-            const openResponse = await client.conversations.open({
-              users: slackUserId,
-            });
-
-            if (!openResponse.ok || !openResponse.channel?.id) {
-              throw new Error(`Failed to open DM channel: ${openResponse.error}`);
-            }
-
-            const dmChannelId = openResponse.channel.id;
-
-            // Try to find the latest bot message to use as a thread
-            const latestThreadTs = await getLatestBotMessageInDM(
-              mailbox.slackBotToken,
-              dmChannelId,
-              mailbox.slackBotUserId,
-            );
-
-            console.log(
-              "[createWebNotificationForAssignee] Latest notification thread:",
-              latestThreadTs ?? "none - will create new top-level message",
-            );
-
-            const result = await sendSlackDM(
-              mailbox.slackBotToken,
-              slackUserId,
-              `${title}: ${body}`,
-              [
-                {
-                  type: "section",
-                  text: {
-                    type: "mrkdwn",
-                    text: slackText,
-                  },
-                },
-              ],
-              latestThreadTs ?? undefined, // Send as threaded reply if we found a thread
-            );
-
-            if (result) {
-              console.log(
-                "[createWebNotificationForAssignee] Slack DM sent successfully:",
-                result.messageTs,
-                "in channel:",
-                result.channelId,
-              );
-            } else {
-              console.log("[createWebNotificationForAssignee] Failed to send Slack DM");
-            }
-          } else {
-            console.log("[createWebNotificationForAssignee] Slack user not found for email:", assignee.user.email);
-          }
-        } else {
-          console.log("[createWebNotificationForAssignee] Slack not connected or no email for assignee");
-        }
-      } catch (error) {
-        console.error("[createWebNotificationForAssignee] Error sending Slack DM:", error);
-        captureExceptionAndLog(error);
-        // Don't fail the entire job if Slack DM fails
-      }
-    } else {
-      console.log("[createWebNotificationForAssignee] Slack DM notifications not enabled for user");
-    }
-
-    // Return success (realtime notification was sent, plus any push/Slack notifications)
+    // Return success (realtime notification was sent, plus any push notifications)
     return {
       success: true,
       notificationId: notification.id,

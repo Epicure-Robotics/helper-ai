@@ -1,5 +1,5 @@
 /**
- * Canonical Epicure Robotics context for AI prompts (widget, drafts, Slack).
+ * Canonical Epicure Robotics context for AI prompts (widget, drafts).
  * Includes approved public product pricing and traction; excludes manufacturing cost,
  * revenue, margins, fundraising, and internal fleet ramp targets unless published on the site.
  *

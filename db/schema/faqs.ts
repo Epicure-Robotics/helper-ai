@@ -19,8 +19,6 @@ export const faqs = pgTable(
     suggestedReplacementForId: bigint({ mode: "number" }),
     messageId: bigint({ mode: "number" }),
     sourceConversationId: bigint({ mode: "number" }),
-    slackChannel: text(),
-    slackMessageTs: text(),
     usageCount: integer().notNull().default(0),
     lastUsedAt: timestamp({ withTimezone: true, mode: "date" }),
   },

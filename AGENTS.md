@@ -4,7 +4,7 @@ This file provides guidance to agents when working with code in this repository.
 
 ## Project Overview
 
-Epicure Assist is an AI-assisted team inbox for Epicure Robotics: email (Gmail), Slack, and a customizable chat widget, built on Next.js 15 (App Router) with real-time updates and background jobs.
+Epicure Assist is an AI-assisted team inbox for Epicure Robotics: email (Gmail) and a customizable chat widget, built on Next.js 15 (App Router) with real-time updates and background jobs.
 
 ## Development Commands
 
@@ -25,20 +25,6 @@ pnpm tc:w             # Watch mode
 pnpm lint             # Run ESLint on all packages
 pnpm format           # Check Prettier formatting
 ```
-
-### Maintenance Scripts
-
-```bash
-# Delete a Slack message sent by the helper bot
-# Requires --channel (Slack channel ID) and --ts (message timestamp)
-pnpm with-dev-env tsx scripts/delete-slack-message.ts --channel <channel-id> --ts <message-ts>
-
-# Optional: pass a bot token directly instead of loading from the DB
-pnpm with-dev-env tsx scripts/delete-slack-message.ts --channel <channel-id> --ts <message-ts> --token <bot-token>
-```
-
-To find the `ts` of a message: hover the message in Slack → More actions → Copy link.
-The URL ends with `p<ts>` — insert a `.` after the 10th digit (e.g. `p17000000001234560` → `1700000000.123456`).
 
 ## Architecture
 
@@ -69,8 +55,8 @@ app/                      # Next.js App Router
 ├── api/                  # REST API endpoints & webhooks
 │   ├── chat/             # Widget chat API (public)
 │   ├── guide/            # Interactive guide/onboarding API
-│   ├── webhooks/         # Gmail, Slack, GitHub, Firecrawl webhooks
-│   └── connect/          # OAuth callbacks (Google, GitHub, Slack)
+│   ├── webhooks/         # Gmail, GitHub, Firecrawl webhooks
+│   └── connect/          # OAuth callbacks (Google, GitHub)
 ├── login/                # Authentication & onboarding
 └── widget/               # Embeddable chat widget routes
 
@@ -94,7 +80,6 @@ lib/                      # Shared business logic
 ├── data/                 # Data access layer (DB queries)
 ├── auth/                 # Authentication utilities
 ├── gmail/                # Gmail API client
-├── slack/                # Slack API & bot logic
 ├── github/               # GitHub integration
 ├── supabase/             # Supabase client (server & client)
 ├── realtime/             # Realtime pub/sub
@@ -195,7 +180,7 @@ Required for local development (see [`.env.example`](.env.example); copy to `.en
 
 Optional integrations (can use placeholders initially):
 
-- Gmail, Slack, GitHub, Firecrawl
+- Gmail, GitHub, Firecrawl
 
 Use `pnpm with-dev-env <command>` to run commands with dev environment variables loaded.
 

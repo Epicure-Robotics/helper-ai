@@ -9,12 +9,11 @@ import { findSimilarConversations } from "@/lib/data/retrieval";
 import { conversationsRouter } from "./conversations/index";
 import { customersRouter } from "./customers";
 import { faqsRouter } from "./faqs";
-import { knowledgeGapsRouter } from "./knowledgeGaps";
 import { issueGroupsRouter } from "./issueGroups";
+import { knowledgeGapsRouter } from "./knowledgeGaps";
 import { membersRouter } from "./members";
 import { mailboxProcedure } from "./procedure";
 import { savedRepliesRouter } from "./savedReplies";
-import { slackRouter } from "./slack";
 import { toolsRouter } from "./tools";
 import { websitesRouter } from "./websites";
 
@@ -124,7 +123,6 @@ export const mailboxRouter = {
   update: mailboxProcedure
     .input(
       z.object({
-        slackAlertChannel: z.string().nullable().optional(),
         githubRepoOwner: z.string().optional(),
         githubRepoName: z.string().optional(),
         widgetDisplayMode: z.enum(["off", "always", "revenue_based"]).optional(),
@@ -132,7 +130,6 @@ export const mailboxRouter = {
         widgetHost: z.string().nullable().optional(),
         customerInfoUrl: z.string().nullable().optional(),
         vipThreshold: z.number().nullable().optional(),
-        vipChannelId: z.string().nullable().optional(),
         vipExpectedResponseHours: z.number().nullable().optional(),
         autoCloseEnabled: z.boolean().optional(),
         autoCloseDaysOfInactivity: z.number().optional(),
@@ -163,7 +160,6 @@ export const mailboxRouter = {
   faqs: faqsRouter,
   knowledgeGaps: knowledgeGapsRouter,
   members: membersRouter,
-  slack: slackRouter,
   tools: toolsRouter,
   customers: customersRouter,
   websites: websitesRouter,

@@ -24,7 +24,7 @@ import LoadingSpinner from "@/components/loadingSpinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBreakpoint } from "@/components/useBreakpoint";
 import type { serializeMessage } from "@/lib/data/conversationMessage";
@@ -454,6 +454,7 @@ const ConversationContent = () => {
       {conversationInfo ? (
         <Sheet open={sidebarVisible} onOpenChange={setSidebarVisible}>
           <SheetContent side="right" className="w-[380px] max-w-[90vw] p-0 border-l border-border/70 bg-background">
+            <SheetTitle className="sr-only">Conversation details</SheetTitle>
             <ConversationSidebar conversation={conversationInfo} />
           </SheetContent>
         </Sheet>

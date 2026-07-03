@@ -1,7 +1,7 @@
 {
   "name": "epicure-assist",
   "version": "0.3.0",
-  "description": "Epicure Assist — team inbox and AI assistant for Epicure Robotics (Gmail, Slack, embedded chat).",
+  "description": "Epicure Assist — team inbox and AI assistant for Epicure Robotics (Gmail, embedded chat).",
   "packageManager": "pnpm@10.8.0+sha512.0e82714d1b5b43c74610193cb20734897c1d00de89d0e18420aebc5977fa13d780a9cb05734624e81ebd81cc876cd464794850641c48b9544326b5622ca29971",
   "private": true,
   "type": "module",
@@ -93,8 +93,6 @@
     "@react-email/render": "^1.0.6",
     "@readme/openapi-parser": "^2.6.0",
     "@sentry/nextjs": "^9.15.0",
-    "@slack/types": "^2.14.0",
-    "@slack/web-api": "^7.5.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.4",
     "@t3-oss/env-nextjs": "^0.11.0",

@@ -7,7 +7,6 @@ import { authUsers } from "@/db/supabaseSchema/auth";
 import type { LeadRoutingRole } from "@/lib/leads/inboundTriage";
 import { createAdminClient } from "@/lib/supabase/server";
 import { getFirstName, getFullName } from "../auth/authUtils";
-import { getSlackUser } from "../slack/client";
 
 /** Assignment presence: active members receive auto-assign; away members do not. Legacy `core` / `nonCore` normalize to active. */
 export type UserPresence = "active" | "afk";
@@ -234,12 +233,6 @@ export const updateUserMailboxData = async (
 
   return rowToMember(updatedProfile);
 };
-
-export const findUserViaSlack = cache(async (token: string, slackUserId: string): Promise<FullUserProfile | null> => {
-  const slackUser = await getSlackUser(token, slackUserId);
-  const user = await getFullProfileByEmail(slackUser?.profile?.email ?? "");
-  return user ?? null;
-});
 
 export const getStaffName = async (userId: string | null) => {
   if (!userId) return null;

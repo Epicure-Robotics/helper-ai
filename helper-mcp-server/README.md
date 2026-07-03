@@ -10,19 +10,12 @@ Tool names keep the `helper_*` prefix for compatibility with existing MCP client
 - `helper_list_team_members`
 - `helper_list_tickets`
 - `helper_get_ticket`
-- `helper_get_shopify_orders`
-- `helper_get_shopify_order`
 - `helper_reply_to_ticket`
 - `helper_set_ticket_status`
 - `helper_assign_ticket`
 - `helper_add_internal_note`
 
 `helper_list_tickets` defaults to active tickets sorted newest-first. It also supports first-class MCP views like `active`, `mine`, `open_unread`, `unassigned_open`, and `awaiting_customer`, plus sort aliases like `latest`, `created_desc`, and `updated_desc`.
-
-The Shopify lookup tools are read-only:
-
-- `helper_get_shopify_orders` fetches Shopify customer and order history by email
-- `helper_get_shopify_order` fetches a Shopify order by order number or name, with or without `#`
 
 ## Acting user
 
@@ -107,6 +100,5 @@ Start the HTTP server first with `pnpm mcp:helper:http`.
 - The HTTP server uses session-based Streamable HTTP, which works well with URL-based MCP registration.
 - When `HELPER_MCP_BEARER_TOKEN` is set, HTTP requests must include `Authorization: Bearer <token>`.
 - Ticket timelines expose both `html_body` and normalized `body_text` for message reading and draft generation.
-- Shopify lookup tools return structured `configured`, `found`, and `error` fields so agents can branch cleanly on missing integrations versus no-match lookups.
 - All tools accept `response_format` with `markdown` or `json`.
 - File uploads are not exposed yet. Reply and note tools currently operate without attachments.

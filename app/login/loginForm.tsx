@@ -26,8 +26,17 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
   const [otpError, setOtpError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [dashboardUrl, setDashboardUrl] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  const { theme, systemTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
+
+  // Avoid SSR/client hydration mismatch: the theme is only known on the client,
+  // so render the light logo on the server + first paint, then swap after mount.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const logoSrc = mounted && resolvedTheme === "dark" ? "/logo-white.svg" : "/logo.svg";
 
   const startSignInMutation = api.user.startSignIn.useMutation({
     onSuccess: (data) => {
@@ -114,7 +123,7 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <div className="flex flex-col items-center gap-3">
         <Image
-          src={theme === "dark" || systemTheme === "dark" ? "/logo-white.svg" : "/logo.svg"}
+          src={logoSrc}
           alt="Epicure Assist"
           width="110"
           height="32"

@@ -373,7 +373,9 @@ const MessageItem = ({
           )}
         </div>
         <div className="flex w-full items-center gap-3 text-sm text-muted-foreground">
-          {message.isNew && <div className="h-[0.5rem] w-[0.5rem] rounded-full bg-primary shadow-sm shadow-primary/35" />}
+          {message.isNew && (
+            <div className="h-[0.5rem] w-[0.5rem] rounded-full bg-primary shadow-sm shadow-primary/35" />
+          )}
           {hasReasoning && !userMessage && (
             <Popover>
               <PopoverTrigger asChild>
@@ -417,16 +419,8 @@ const MessageItem = ({
           )}
           <div className="flex flex-1 items-center gap-2">
             <div className="flex flex-1 items-center gap-2">
-              {message.type === "message" && message.slackUrl && (
-                <span>
-                  <a target="_blank" href={message.slackUrl}>
-                    {message.role === "user" ? "alerted on Slack" : "via Slack"}
-                  </a>
-                </span>
-              )}
               {onViewDraftedReply && (
                 <span>
-                  {message.type === "message" && message.slackUrl && <span>&nbsp;·&nbsp;</span>}
                   <button className="cursor-pointer underline" onClick={onViewDraftedReply}>
                     View drafted reply
                   </button>

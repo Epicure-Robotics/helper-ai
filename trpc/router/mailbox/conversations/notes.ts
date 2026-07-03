@@ -9,7 +9,6 @@ export const notesRouter = {
       z.object({
         message: z.string(),
         fileSlugs: z.array(z.string()),
-        slackChannelId: z.string().optional(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -18,7 +17,6 @@ export const notesRouter = {
         message: input.message,
         fileSlugs: input.fileSlugs,
         user: ctx.user,
-        slackChannelId: input.slackChannelId,
       });
       return { id: note.id };
     }),

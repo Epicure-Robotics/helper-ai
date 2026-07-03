@@ -24,7 +24,6 @@ import { triggerEvent } from "@/jobs/trigger";
 import { PromptInfo } from "@/lib/ai/promptInfo";
 import { getStaffName } from "@/lib/data/user";
 import { proxyExternalContent } from "@/lib/proxyExternalContent";
-import { getSlackPermalink } from "@/lib/slack/client";
 import { formatBytes } from "../files";
 import { getConversationById, getNonSupportParticipants, updateConversation } from "./conversation";
 import { finishFileUpload, formatAttachments, getFileUrl } from "./files";
@@ -106,7 +105,7 @@ export const findLatestUserMessageForConversation = async (conversationId: numbe
   });
 };
 
-export const getMessages = async (conversationId: number, mailbox: typeof mailboxes.$inferSelect) => {
+export const getMessages = async (conversationId: number) => {
   const findMessages = (where: SQL) =>
     db.query.conversationMessages.findMany({
       where: and(
@@ -130,8 +129,6 @@ export const getMessages = async (conversationId: number, mailbox: typeof mailbo
         role: true,
         conversationId: true,
         metadata: true,
-        slackChannel: true,
-        slackMessageTs: true,
         reactionType: true,
         reactionFeedback: true,
         reactionCreatedAt: true,
@@ -154,8 +151,6 @@ export const getMessages = async (conversationId: number, mailbox: typeof mailbo
         createdAt: true,
         body: true,
         role: true,
-        slackChannel: true,
-        slackMessageTs: true,
         userId: true,
       },
       with: {
@@ -191,17 +186,13 @@ export const getMessages = async (conversationId: number, mailbox: typeof mailbo
     }),
   ]);
 
-  const messageInfos = await Promise.all(messages.map((message) => serializeMessage(message, conversationId, mailbox)));
+  const messageInfos = await Promise.all(messages.map((message) => serializeMessage(message, conversationId)));
 
   const noteInfos = await Promise.all(
     noteRecords.map(async (note) => ({
       ...note,
       type: "note" as const,
       userId: note.userId,
-      slackUrl:
-        mailbox.slackBotToken && note.slackChannel && note.slackMessageTs
-          ? await getSlackPermalink(mailbox.slackBotToken, note.slackChannel, note.slackMessageTs)
-          : null,
       files: (await serializeFiles(note.files)).flatMap((f) => (f.isInline ? [] : [f])),
     })),
   );
@@ -252,8 +243,6 @@ export const serializeMessage = async (
     | "isPinned"
     | "role"
     | "conversationId"
-    | "slackChannel"
-    | "slackMessageTs"
     | "metadata"
     | "reactionType"
     | "reactionFeedback"
@@ -264,7 +253,6 @@ export const serializeMessage = async (
     files?: (typeof files.$inferSelect)[];
   },
   conversationId: number,
-  mailbox: typeof mailboxes.$inferSelect,
 ) => {
   const messageFiles =
     message.files ??
@@ -306,10 +294,6 @@ export const serializeMessage = async (
     userId: message.userId,
     isMerged: message.conversationId !== conversationId,
     isPinned: message.isPinned ?? false,
-    slackUrl:
-      mailbox.slackBotToken && message.slackChannel && message.slackMessageTs
-        ? await getSlackPermalink(mailbox.slackBotToken, message.slackChannel, message.slackMessageTs)
-        : null,
     files: filesData.flatMap((f) => (f.isInline ? [] : [f])),
     metadata: message.metadata,
     reactionType: message.reactionType,
@@ -380,7 +364,6 @@ export const createReply = async (
     bcc = [],
     fileSlugs = [],
     close = true,
-    slack,
     role,
     responseToId = null,
     shouldAutoAssign = true,
@@ -394,7 +377,6 @@ export const createReply = async (
     bcc?: string[];
     fileSlugs?: string[];
     close?: boolean;
-    slack?: { channel: string; messageTs: string } | null;
     role?: "user" | "staff" | null;
     responseToId?: number | null;
     shouldAutoAssign?: boolean;
@@ -435,8 +417,6 @@ export const createReply = async (
         emailTo: to?.[0] ?? conversation.emailFrom ?? null,
         emailCc: cc ?? (await getNonSupportParticipants(conversation)),
         emailBcc: bcc,
-        slackChannel: slack?.channel,
-        slackMessageTs: slack?.messageTs,
         role: role ?? "staff",
         responseToId,
         status: "queueing",
@@ -478,9 +458,6 @@ export const createReply = async (
             .set({ usageCount: sql`${faqs.usageCount} + 1`, lastUsedAt: new Date() })
             .where(inArray(faqs.id, entryIds));
         }
-      } else if (message?.trim()) {
-        // Staff rewrote the AI draft — learn from the human reply.
-        await triggerEvent("messages/staff-edited-draft", { messageId: createdMessage.id });
       }
     }
     await discardAiGeneratedDrafts(conversationId, tx);

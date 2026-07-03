@@ -90,8 +90,6 @@ export const handleTemplateResponse = async ({
   );
 
   const generateResponse = async () => {
-    const shopifyContext = "";
-
     // Build context-rich messages
     const { messages: systemMessages } = await buildPromptMessages(
       mailbox,
@@ -110,7 +108,7 @@ export const handleTemplateResponse = async ({
 
     // Enhance instructions for structured output
     const customInstructions = issueGroup.customPrompt ? `\n\nCustom Instructions: ${issueGroup.customPrompt}` : "";
-    const prompt = `You are answering an email using a template. Provide content for ALL template variables. Do not include any URLs or links in your responses.\n\nTemplate variables to fill: ${templateVariables.join(", ")}${customInstructions}${shopifyContext}`;
+    const prompt = `You are answering an email using a template. Provide content for ALL template variables. Do not include any URLs or links in your responses.\n\nTemplate variables to fill: ${templateVariables.join(", ")}${customInstructions}`;
 
     if (systemMessages[0] && typeof systemMessages[0].content === "string") {
       systemMessages[0].content += `\n\n${prompt}`;

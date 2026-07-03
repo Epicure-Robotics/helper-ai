@@ -9,7 +9,7 @@ import { db } from "@/db/client";
 import { conversationMessages } from "@/db/schema";
 import { createCaller } from "@/trpc";
 
-const jobsMock = mockJobs();
+mockJobs();
 
 vi.mock("@/lib/data/conversationMessage", () => ({
   createReply: vi.fn().mockResolvedValue(123),
@@ -40,10 +40,6 @@ describe("messagesRouter", () => {
 
       expect(updatedMessage?.isFlaggedAsBad).toBe(true);
       expect(updatedMessage?.reason).toBe("Incorrect information");
-      expect(jobsMock.triggerEvent).toHaveBeenCalledWith("messages/flagged.bad", {
-        messageId: aiMessage.id,
-        reason: "Incorrect information",
-      });
     });
 
     it("throws an error when trying to flag a non-existent message", async () => {

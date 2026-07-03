@@ -3,10 +3,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 
 export const updateSession = async (request: NextRequest) => {
-  // Add delay in development mode to avoid bombing the database with hot reloads
-  if (env.NODE_ENV === "development") {
-    await new Promise((resolve) => setTimeout(resolve, 200)); // 1 second delay
-  }
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -24,18 +20,21 @@ export const updateSession = async (request: NextRequest) => {
       },
     },
   });
-  // Do not run code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
-  // IMPORTANT: DO NOT REMOVE auth.getUser()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user && request.nextUrl.pathname.startsWith("/login")) {
+  // Do not run code between createServerClient and the auth check below.
+  // A simple mistake could make it very hard to debug issues with users being
+  // randomly logged out. IMPORTANT: DO NOT REMOVE this auth call.
+  //
+  // getClaims() is Supabase's recommended middleware auth check: with asymmetric
+  // JWT signing keys it verifies the token locally (no network round-trip per
+  // request); with legacy HS256 keys it transparently falls back to getUser().
+  // Enable "JWT Signing Keys" in the Supabase dashboard to get local verification.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const isAuthenticated = !!claimsData?.claims;
+  if (isAuthenticated && request.nextUrl.pathname.startsWith("/login")) {
     return NextResponse.redirect(new URL("/mine", request.url));
   }
   if (
-    !user &&
+    !isAuthenticated &&
     request.nextUrl.pathname !== "/" &&
     !request.nextUrl.pathname.startsWith("/api") &&
     !request.nextUrl.pathname.startsWith("/login") &&

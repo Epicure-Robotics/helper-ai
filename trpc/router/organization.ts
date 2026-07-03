@@ -1,10 +1,10 @@
-import { type TRPCRouterRecord } from "@trpc/server";
+import { type TRPCRouterRecord, TRPCError } from "@trpc/server";
 import { eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { userProfiles } from "@/db/schema";
 import { authUsers } from "@/db/supabaseSchema/auth";
-import { addUser } from "@/lib/data/user";
+import { addUser, getProfile, isAdmin } from "@/lib/data/user";
 import { protectedProcedure } from "../trpc";
 
 export const organizationRouter = {
@@ -39,6 +39,13 @@ export const organizationRouter = {
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const userProfile = await getProfile(ctx.user.id);
+      if (!isAdmin(userProfile)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only admins can add team members.",
+        });
+      }
       await addUser(ctx.user.id, input.email, input.displayName, input.permissions);
     }),
 } satisfies TRPCRouterRecord;

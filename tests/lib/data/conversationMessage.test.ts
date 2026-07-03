@@ -22,11 +22,7 @@ import {
   serializeResponseAiDraft,
 } from "@/lib/data/conversationMessage";
 import { getFileUrl } from "@/lib/data/files";
-import { getSlackPermalink } from "@/lib/slack/client";
 
-vi.mock("@/lib/slack/client", () => ({
-  getSlackPermalink: vi.fn().mockResolvedValue(null),
-}));
 vi.mock("@/lib/data/files", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/data/files")>();
   return {
@@ -41,7 +37,7 @@ beforeEach(() => {
 
 describe("serializeResponseAiDraft", () => {
   it("returns null if draft is missing a responseToId", async () => {
-    const { mailbox } = await userFactory.createRootUser();
+    await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
     const { message: draft } = await conversationMessagesFactory.create(conversation.id, {
       role: "ai_assistant" as const,
@@ -52,7 +48,7 @@ describe("serializeResponseAiDraft", () => {
   });
 
   it("correctly serializes a valid draft", async () => {
-    const { mailbox } = await userFactory.createRootUser();
+    await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
     const params = {
       role: "ai_assistant" as const,
@@ -82,7 +78,7 @@ describe("serializeResponseAiDraft", () => {
 
 describe("getMessages", () => {
   it("returns messages, notes and events sorted by createdAt with correct fields", async () => {
-    const { user, mailbox } = await userFactory.createRootUser({
+    const { user } = await userFactory.createRootUser({
       userOverrides: {
         user_metadata: {
           display_name: "Test User",
@@ -114,7 +110,7 @@ describe("getMessages", () => {
       reason: "Sent reply",
     });
 
-    const result = await getMessages(conversation.id, mailbox);
+    const result = await getMessages(conversation.id);
 
     expect(result).toHaveLength(4);
 
@@ -135,7 +131,7 @@ describe("getMessages", () => {
   });
 
   it("handles 'from' field correctly for different message roles", async () => {
-    const { user, mailbox } = await userFactory.createRootUser({
+    const { user } = await userFactory.createRootUser({
       userOverrides: {
         user_metadata: {
           display_name: "Test User",
@@ -153,7 +149,7 @@ describe("getMessages", () => {
       userId: user.id,
     });
 
-    const result = await getMessages(conversation.id, mailbox);
+    const result = await getMessages(conversation.id);
     assert(result[0]?.type === "message");
     assert(result[1]?.type === "message");
 
@@ -164,14 +160,14 @@ describe("getMessages", () => {
   });
 
   it("includes files for messages", async () => {
-    const { mailbox } = await userFactory.createRootUser();
+    await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
     const { message } = await conversationMessagesFactory.create(conversation.id);
     const { file } = await fileFactory.create(message.id, { isInline: false, size: 1024 * 1024 });
 
     vi.mocked(getFileUrl).mockResolvedValue("https://presigned-url.com");
 
-    const result = await getMessages(conversation.id, mailbox);
+    const result = await getMessages(conversation.id);
     assert(result[0]?.type === "message");
     expect(result[0].files[0]).toEqual({
       id: file.id,
@@ -193,25 +189,8 @@ describe("getMessages", () => {
     });
   });
 
-  it("generates Slack links", async () => {
-    const { mailbox } = await mailboxFactory.create({ slackBotToken: "test-token" });
-    const { conversation } = await conversationFactory.create();
-    await conversationMessagesFactory.create(conversation.id, {
-      slackChannel: "test-channel",
-      slackMessageTs: "1234567890.123456",
-    });
-
-    vi.mocked(getSlackPermalink).mockResolvedValueOnce("https://slack.com/permalink");
-
-    const result = await getMessages(conversation.id, mailbox);
-
-    assert(result[0]?.type === "message");
-    expect(result[0].slackUrl).toBe("https://slack.com/permalink");
-    expect(getSlackPermalink).toHaveBeenCalledWith("test-token", "test-channel", "1234567890.123456");
-  });
-
   it("sanitizes message bodies", async () => {
-    const { mailbox } = await userFactory.createRootUser();
+    await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
     const unsafeHtml = `
       <p>Safe content</p>
@@ -224,7 +203,7 @@ describe("getMessages", () => {
       body: unsafeHtml,
     });
 
-    const result = await getMessages(conversation.id, mailbox);
+    const result = await getMessages(conversation.id);
 
     expect(result).toHaveLength(1);
     assert(result[0]?.type === "message");
@@ -237,7 +216,7 @@ describe("getMessages", () => {
   });
 
   it("should handle staff messages with null userId correctly", async () => {
-    const { mailbox } = await userFactory.createRootUser();
+    await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
 
     // Create staff message with null userId (system-generated message)
@@ -247,7 +226,7 @@ describe("getMessages", () => {
       body: "System generated message",
     });
 
-    const result = await getMessages(conversation.id, mailbox);
+    const result = await getMessages(conversation.id);
     assert(result[0]?.type === "message");
 
     expect(result[0].from).toBe(null); // Staff messages return null for from
@@ -256,7 +235,7 @@ describe("getMessages", () => {
   });
 
   it("should handle notes with null userId correctly", async () => {
-    const { mailbox } = await userFactory.createRootUser();
+    await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
 
     // Create note with null userId
@@ -265,7 +244,7 @@ describe("getMessages", () => {
       body: "System note",
     });
 
-    const result = await getMessages(conversation.id, mailbox);
+    const result = await getMessages(conversation.id);
     assert(result[0]?.type === "note");
 
     expect(result[0].id).toBe(note.id);
@@ -274,7 +253,7 @@ describe("getMessages", () => {
   });
 
   it("should handle events with null byUserId correctly", async () => {
-    const { mailbox } = await userFactory.createRootUser();
+    await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
 
     // Create event with null byUserId (system event)
@@ -284,7 +263,7 @@ describe("getMessages", () => {
       reason: "System update",
     });
 
-    const result = await getMessages(conversation.id, mailbox);
+    const result = await getMessages(conversation.id);
     assert(result[0]?.type === "event");
 
     expect(result[0].id).toBe(event.id);
@@ -293,7 +272,7 @@ describe("getMessages", () => {
   });
 
   it("should handle events with null assignedToId in changes correctly", async () => {
-    const { user, mailbox } = await userFactory.createRootUser();
+    const { user } = await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
 
     // Create event with null assignedToId (unassignment)
@@ -304,7 +283,7 @@ describe("getMessages", () => {
       reason: "Unassigned",
     });
 
-    const result = await getMessages(conversation.id, mailbox);
+    const result = await getMessages(conversation.id);
     assert(result[0]?.type === "event");
 
     expect(result[0].changes.assignedToId).toBe(null); // Raw ID, not resolved name
@@ -313,7 +292,7 @@ describe("getMessages", () => {
   });
 
   it("should handle conversation with mixed user presence correctly", async () => {
-    const { user: user1, mailbox } = await userFactory.createRootUser();
+    const { user: user1 } = await userFactory.createRootUser();
     const { user: user2 } = await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
 
@@ -344,7 +323,7 @@ describe("getMessages", () => {
       changes: { assignedToId: user2.id },
     });
 
-    const result = await getMessages(conversation.id, mailbox);
+    const result = await getMessages(conversation.id);
     expect(result).toHaveLength(5);
 
     // Customer message
@@ -518,28 +497,6 @@ describe("createReply", () => {
       body: "Test message",
       emailCc: ["cc@example.com"],
       emailBcc: ["bcc@example.com"],
-    });
-  });
-
-  it("creates a reply with Slack information", async () => {
-    const { profile } = await userFactory.createRootUser();
-    const { conversation } = await conversationFactory.create();
-
-    const result = await createReply({
-      conversationId: conversation.id,
-      message: "Test message",
-      user: profile,
-      slack: {
-        channel: "C12345",
-        messageTs: "1234567890.123456",
-      },
-    });
-
-    const createdMessage = await getConversationMessageById(result);
-    expect(createdMessage).toMatchObject({
-      body: "Test message",
-      slackChannel: "C12345",
-      slackMessageTs: "1234567890.123456",
     });
   });
 

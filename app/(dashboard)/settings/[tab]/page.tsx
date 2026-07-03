@@ -18,7 +18,6 @@ import EmailFinderSetting from "../email-finder/emailFinderSetting";
 import ConnectSupportEmail from "../integrations/connectSupportEmail";
 import GmailArchiveSetting from "../integrations/gmailArchiveSetting";
 import ImportOldEmail from "../integrations/importOldEmail";
-import SlackSetting from "../integrations/slackSetting";
 import KnowledgeSetting from "../knowledge/knowledgeSetting";
 import NotificationsSetting from "../notifications/notificationsSetting";
 import MailboxSetting from "../preferences/mailboxSetting";
@@ -74,7 +73,6 @@ export default function TabsPage() {
       content: (
         <>
           <ToolSetting />
-          <SlackSetting mailbox={mailbox} />
           <ConnectSupportEmail />
           <GmailArchiveSetting mailbox={mailbox} />
           <ImportOldEmail />

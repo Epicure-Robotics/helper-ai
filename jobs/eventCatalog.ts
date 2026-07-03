@@ -19,8 +19,6 @@ export const events = {
       "indexConversationMessage",
       "generateConversationSummaryEmbeddings",
       "publishNewMessageEvent",
-      "notifyVipMessage",
-      "postConversationFollowUpToSlackThread",
       "categorizeConversationToIssueGroup",
       "generateBackgroundDraft",
     ],
@@ -108,39 +106,12 @@ export const events = {
     }),
     jobs: ["importGmailThreads"],
   },
-  "reports/weekly": {
-    data: z.object({}),
-    jobs: ["generateMailboxWeeklyReport"],
-  },
-  "reports/daily": {
-    data: z.object({}),
-    jobs: ["generateMailboxDailyReport"],
-  },
   "websites/crawl.create": {
     data: z.object({
       websiteId: z.number(),
       crawlId: z.number(),
     }),
     jobs: ["crawlWebsite"],
-  },
-  "messages/flagged.bad": {
-    data: z.object({
-      messageId: z.number(),
-      reason: z.string().nullable(),
-    }),
-    jobs: ["suggestKnowledgeBankChanges"],
-  },
-  "messages/staff-edited-draft": {
-    data: z.object({
-      messageId: z.number(),
-    }),
-    jobs: ["suggestKnowledgeBankFromEditedDraft"],
-  },
-  "conversations/closed.extract-faqs": {
-    data: z.object({
-      conversationId: z.number(),
-    }),
-    jobs: ["extractFaqsFromConversation"],
   },
   "knowledge/gap.detected": {
     data: z.object({
@@ -165,16 +136,6 @@ export const events = {
       conversationId: z.number(),
     }),
     jobs: ["autoAssignConversation", "publishRequestHumanSupport"],
-  },
-  "slack/agent.message": {
-    data: z.object({
-      slackUserId: z.string().nullable(),
-      statusMessageTs: z.string(),
-      agentThreadId: z.number(),
-      confirmedReplyText: z.string().nullish(),
-      confirmedKnowledgeBaseEntry: z.string().nullish(),
-    }),
-    jobs: ["handleSlackAgentMessage"],
   },
   "conversations/send-follower-notification": {
     data: z.object({
@@ -222,15 +183,6 @@ export const events = {
       closedByUserId: z.string().nullable(),
     }),
     jobs: ["sendClosedThreadEmail"],
-  },
-  "notes/post-to-slack": {
-    data: z.object({
-      noteId: z.number(),
-      conversationId: z.number(),
-      triggeredByUserId: z.string().optional(),
-      slackChannelId: z.string().optional(),
-    }),
-    jobs: ["postInternalNoteToSlack"],
   },
 };
 

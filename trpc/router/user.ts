@@ -14,7 +14,10 @@ import { captureExceptionAndLog } from "@/lib/shared/sentry";
 import { createAdminClient } from "@/lib/supabase/server";
 import { protectedProcedure, publicProcedure } from "../trpc";
 
-const safeToSendBackOTP = !env.VERCEL && env.AUTH_URL === "https://helperai.dev";
+// Local development (never a production build). In dev we surface the OTP directly so login
+// works even when SMTP is misconfigured/unavailable; this stays off in any production deploy.
+const isLocalDevEnv = process.env.NODE_ENV !== "production" && !env.VERCEL;
+const safeToSendBackOTP = !env.VERCEL && (env.AUTH_URL === "https://helperai.dev" || isLocalDevEnv);
 
 export const userRouter = {
   startSignIn: publicProcedure.input(z.object({ email: z.string() })).mutation(async ({ input }) => {
@@ -53,14 +56,18 @@ export const userRouter = {
           subject: `Your OTP for Helper: ${data.properties.email_otp}`,
           react: OtpEmail({ otp: data.properties.email_otp }),
         });
+        return { email: true };
       } catch (error) {
         captureExceptionAndLog(error);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to send OTP: ${error instanceof Error ? error.message : "Unknown error"}`,
-        });
+        // In production a failed OTP email is fatal. In local dev, fall through to the
+        // cache + dashboard-link path (and safeToSendBackOTP) so broken SMTP doesn't block login.
+        if (!isLocalDevEnv) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to send OTP: ${error instanceof Error ? error.message : "Unknown error"}`,
+          });
+        }
       }
-      return { email: true };
     }
 
     await cacheFor<string>(`otp:${user.id}`).set(data.properties.email_otp.toString(), 60 * 5);
@@ -346,7 +353,6 @@ export const userRouter = {
       z.object({
         webPushEnabled: z.boolean().optional(),
         inAppToastEnabled: z.boolean().optional(),
-        slackDMEnabled: z.boolean().optional(),
         notifyOnNewMessage: z.boolean().optional(),
         notifyOnAssignment: z.boolean().optional(),
         notifyOnNote: z.boolean().optional(),
@@ -382,8 +388,9 @@ export const userRouter = {
 
 const isSignupPossible = (email: string) => {
   const [_, emailDomain] = email.split("@");
-  if (emailDomain && env.EMAIL_SIGNUP_DOMAINS.some((domain) => domain === emailDomain)) {
-    return true;
-  }
+  if (!emailDomain) return false;
+  // "*" allows signup from any email domain (staff sign in with personal emails, not a shared company domain).
+  if (env.EMAIL_SIGNUP_DOMAINS.includes("*")) return true;
+  if (env.EMAIL_SIGNUP_DOMAINS.some((domain) => domain === emailDomain)) return true;
   return false;
 };

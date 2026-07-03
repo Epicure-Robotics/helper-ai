@@ -10,18 +10,12 @@ export const addNote = async ({
   conversationId,
   message,
   user,
-  slackChannel,
-  slackMessageTs,
   fileSlugs = [],
-  slackChannelId,
 }: {
   conversationId: number;
   message: string;
   user: BasicUserProfile | null;
-  slackChannel?: string | null;
-  slackMessageTs?: string | null;
   fileSlugs?: string[];
-  slackChannelId?: string | null;
 }) => {
   return await db.transaction(async (tx) => {
     const note = await tx
@@ -31,8 +25,6 @@ export const addNote = async ({
         body: message,
         userId: user?.id,
         role: "staff",
-        slackChannel,
-        slackMessageTs,
       })
       .returning()
       .then(takeUniqueOrThrow);
@@ -52,15 +44,6 @@ export const addNote = async ({
         type: "internal_note" as const,
         noteId: note.id,
         triggeredByUserId: user.id,
-      });
-
-      // Post internal note to Slack alert channel (same channel as daily notifications)
-      // This is independent of user notification settings - all notes go to Slack
-      await triggerEvent("notes/post-to-slack", {
-        noteId: note.id,
-        conversationId,
-        triggeredByUserId: user.id,
-        slackChannelId: slackChannelId ?? undefined,
       });
     }
 

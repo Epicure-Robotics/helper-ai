@@ -11,7 +11,6 @@ import { getPastConversationsPrompt } from "@/lib/data/retrieval";
 import { fuzzyFindSavedReply } from "@/lib/data/savedReplies";
 import { getMailboxToolsForChat } from "@/lib/data/tools";
 import { createHmacDigest } from "@/lib/metadataApiClient";
-import { getCustomerOrdersByEmail, isShopifyConfigured, searchOrderByName } from "@/lib/shopify/client";
 import { buildAITools, callToolApi } from "@/lib/tools/apiTool";
 import { ToolRequestBody } from "@/packages/client/dist";
 
@@ -67,7 +66,6 @@ export const buildTools = async ({
   includeHumanSupport = true,
   guideEnabled = false,
   includeMailboxTools = true,
-  includeShopifyTools = false,
   includePastConversationSearch = true,
   includeSavedReplyTool = true,
   reasoningMiddlewarePrompt,
@@ -77,7 +75,6 @@ export const buildTools = async ({
   includeHumanSupport?: boolean;
   guideEnabled?: boolean;
   includeMailboxTools?: boolean;
-  includeShopifyTools?: boolean;
   /** Past-thread search is redundant when FAQ/website excerpts are already in the system prompt (widget chat). */
   includePastConversationSearch?: boolean;
   includeSavedReplyTool?: boolean;
@@ -133,106 +130,6 @@ export const buildTools = async ({
           };
         } finally {
           logToolEvent("read_saved_reply", { replyName });
-        }
-      },
-    });
-  }
-
-  // Add Shopify tools if configured and explicitly enabled
-  if (includeShopifyTools && isShopifyConfigured() && email) {
-    tools.shopify_get_customer_orders = tool({
-      description:
-        "Get Shopify customer information and their order history. Returns customer details, order status, tracking information, and fulfillment data. Use this when customer asks about their orders, order status, or delivery information. The customer email is automatically used from the conversation context.",
-      parameters: z.object({}),
-      execute: async () => {
-        const customerEmail = email;
-        try {
-          const result = await getCustomerOrdersByEmail(customerEmail);
-          if (!result.customer) {
-            return { error: "Customer not found in Shopify" };
-          }
-          return {
-            customer: {
-              name: `${result.customer.first_name} ${result.customer.last_name}`,
-              email: result.customer.email,
-              total_orders: result.customer.orders_count,
-              total_spent: result.customer.total_spent,
-            },
-            orders: result.orders.map((order) => ({
-              order_number: order.name,
-              status: order.financial_status,
-              fulfillment_status: order.fulfillment_status,
-              total: order.total_price,
-              currency: order.currency,
-              created_at: order.created_at,
-              items: order.line_items.map((item) => ({
-                name: item.name,
-                quantity: item.quantity,
-                price: item.price,
-              })),
-              tracking: order.fulfillments?.map((f) => ({
-                tracking_number: f.tracking_number,
-                tracking_url: f.tracking_url,
-                status: f.status,
-                delivery_date: f.delivery_date,
-              })),
-            })),
-          };
-        } catch (error) {
-          return {
-            error:
-              error instanceof Error ? `Shopify error: ${error.message}` : "Failed to fetch Shopify customer orders",
-          };
-        } finally {
-          logToolEvent("shopify_get_customer_orders", { email: customerEmail });
-        }
-      },
-    });
-
-    tools.shopify_search_order = tool({
-      description:
-        "Search for a specific Shopify order by order number or name (e.g., #1001). Returns order details including status, items, and tracking information. Use when customer mentions a specific order number.",
-      parameters: z.object({
-        orderName: z.string().describe("order number or name to search for (e.g., '1001' or '#1001')"),
-      }),
-      execute: async ({ orderName }) => {
-        try {
-          const result = await searchOrderByName(orderName);
-          if (!result.customer || result.orders.length === 0) {
-            return { error: "Order not found in Shopify" };
-          }
-          const order = assertDefined(result.orders[0]);
-          return {
-            order: {
-              order_number: order.name,
-              status: order.financial_status,
-              fulfillment_status: order.fulfillment_status,
-              total: order.total_price,
-              currency: order.currency,
-              created_at: order.created_at,
-              customer: {
-                name: `${result.customer.first_name} ${result.customer.last_name}`,
-                email: result.customer.email,
-              },
-              items: order.line_items.map((item) => ({
-                name: item.name,
-                quantity: item.quantity,
-                price: item.price,
-              })),
-              tracking: order.fulfillments?.map((f) => ({
-                tracking_number: f.tracking_number,
-                tracking_url: f.tracking_url,
-                status: f.status,
-                delivery_date: f.delivery_date,
-              })),
-            },
-          };
-        } catch (error) {
-          return {
-            error: error instanceof Error ? `Shopify error: ${error.message}` : "Failed to search Shopify order",
-          };
-        } finally {
-          logToolEvent("shopify_search_order", { orderName });
         }
       },
     });

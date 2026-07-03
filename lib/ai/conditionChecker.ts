@@ -44,10 +44,7 @@ export async function evaluateCondition({
 
   const systemPrompt = `You are a condition evaluator. Your job is to determine if a specific condition is met based on customer data.
 
-You have access to tools to look up customer information:
-- shopify_get_customer_orders: Get Shopify customer and order data (when Shopify is configured)
-
-IMPORTANT: 
+IMPORTANT:
 1. Use the tools to gather the necessary information
 2. After gathering data, determine if the condition is TRUE or FALSE
 3. Respond with a JSON object: {"conditionMet": boolean, "reasoning": "brief explanation"}

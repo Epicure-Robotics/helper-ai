@@ -297,8 +297,7 @@ const registerTools = (server: McpServer, service: HelperMcpService) => {
     "helper_set_ticket_status",
     {
       title: "Set Conversation Status",
-      description:
-        "Update conversation status: open, waiting_on_customer, closed, spam, check_back_later, or ignored.",
+      description: "Update conversation status: open, waiting_on_customer, closed, spam, check_back_later, or ignored.",
       inputSchema: {
         ticket_slug: z.string().min(1).describe("Conversation slug."),
         status: TICKET_STATUS,
@@ -367,12 +366,10 @@ const registerTools = (server: McpServer, service: HelperMcpService) => {
     "helper_add_internal_note",
     {
       title: "Add Internal Note",
-      description:
-        "Add an internal note to a conversation. Notes are team-only; Slack cross-post is used when configured.",
+      description: "Add an internal note to a conversation. Notes are team-only.",
       inputSchema: {
         ticket_slug: z.string().min(1).describe("Conversation slug."),
         note: z.string().min(1).describe("Internal note body."),
-        slack_channel_id: z.string().optional().describe("Optional Slack channel ID for note posting."),
         response_format: RESPONSE_FORMAT,
       },
       annotations: {
@@ -382,13 +379,12 @@ const registerTools = (server: McpServer, service: HelperMcpService) => {
         openWorldHint: true,
       },
     },
-    ({ note, response_format, slack_channel_id, ticket_slug }) =>
+    ({ note, response_format, ticket_slug }) =>
       handleWithFormatting(
         () =>
           service.addInternalNote({
             ticketSlug: ticket_slug,
             note,
-            slackChannelId: slack_channel_id,
           }),
         response_format,
         (result) => formatTicketMutation("Internal note added.", result),

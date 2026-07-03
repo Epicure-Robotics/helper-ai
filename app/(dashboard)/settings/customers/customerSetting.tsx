@@ -5,16 +5,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useSavingIndicator } from "@/components/hooks/useSavingIndicator";
 import { SavingIndicator } from "@/components/savingIndicator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { useDebouncedCallback } from "@/components/useDebouncedCallback";
 import { useOnChange } from "@/components/useOnChange";
 import { RouterOutputs } from "@/trpc";
 import { api } from "@/trpc/react";
-import { SlackChannels } from "../integrations/slackSetting";
 import { SwitchSectionWrapper } from "../sectionWrapper";
 
 const CustomerSetting = ({ mailbox }: { mailbox: RouterOutputs["mailbox"]["get"] }) => {
@@ -47,7 +44,6 @@ const CustomerSetting = ({ mailbox }: { mailbox: RouterOutputs["mailbox"]["get"]
     } else {
       update({
         vipThreshold: null,
-        vipChannelId: null,
         vipExpectedResponseHours: null,
       });
     }
@@ -109,24 +105,24 @@ const CustomerSetting = ({ mailbox }: { mailbox: RouterOutputs["mailbox"]["get"]
           {isEnabled && (
             <div className="space-y-8">
               <div className="space-y-4">
-              <div className="max-w-2xl">
-                <Label htmlFor="vipThreshold" className="text-base font-medium">
-                  VIP Priority Threshold
-                </Label>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Locations with a priority value above this threshold are flagged as VIP in the inbox
-                </p>
-                <Input
-                  id="vipThreshold"
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="Enter threshold value"
-                  value={threshold}
-                  onChange={(e) => setThreshold(e.target.value)}
-                  className="mt-2 max-w-sm"
-                />
-              </div>
+                <div className="max-w-2xl">
+                  <Label htmlFor="vipThreshold" className="text-base font-medium">
+                    VIP Priority Threshold
+                  </Label>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Locations with a priority value above this threshold are flagged as VIP in the inbox
+                  </p>
+                  <Input
+                    id="vipThreshold"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Enter threshold value"
+                    value={threshold}
+                    onChange={(e) => setThreshold(e.target.value)}
+                    className="mt-2 max-w-sm"
+                  />
+                </div>
 
                 <div className="max-w-2xl">
                   <Label htmlFor="responseHours" className="text-base font-medium">
@@ -145,35 +141,6 @@ const CustomerSetting = ({ mailbox }: { mailbox: RouterOutputs["mailbox"]["get"]
                       onChange={(e) => setResponseHours(e.target.value)}
                     />
                     <span className="text-sm text-muted-foreground whitespace-nowrap">hours</span>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="max-w-2xl">
-                  <Label htmlFor="vipChannel" className="text-base font-medium">
-                    Slack Notifications
-                  </Label>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Choose a Slack channel for alerts on new messages from flagged locations
-                  </p>
-                  <div className="mt-4">
-                    {mailbox.slackConnected ? (
-                      <SlackChannels
-                        id="vipChannel"
-                        selectedChannelId={mailbox.vipChannelId ?? undefined}
-                        mailbox={mailbox}
-                        onChange={(vipChannelId) => update({ vipChannelId })}
-                      />
-                    ) : (
-                      <Alert>
-                        <AlertDescription>
-                          Slack integration is required for these alerts. Configure Slack under Integrations.
-                        </AlertDescription>
-                      </Alert>
-                    )}
                   </div>
                 </div>
               </div>
@@ -275,9 +242,7 @@ const CustomerSetting = ({ mailbox }: { mailbox: RouterOutputs["mailbox"]["get"]
                             <span className="text-muted-foreground">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm">
-                          {customer.isVip && <Badge variant="bright">VIP</Badge>}
-                        </td>
+                        <td className="px-4 py-3 text-sm">{customer.isVip && <Badge variant="bright">VIP</Badge>}</td>
                         <td className="px-4 py-3 text-sm text-right">
                           {isEditing ? (
                             <div className="flex items-center justify-end gap-2">

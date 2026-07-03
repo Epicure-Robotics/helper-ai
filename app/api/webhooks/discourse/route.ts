@@ -2,12 +2,7 @@ import { waitUntil } from "@vercel/functions";
 import { generateObject } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@/db/client";
 import openai from "@/lib/ai/openai";
-import { listSlackChannels, postSlackMessage } from "@/lib/slack/client";
-
-/** Slack channel name (without #) for Discourse → Slack community alerts. Override via env for your workspace. */
-const SLACK_COMMUNITY_ALERTS_CHANNEL = process.env.SLACK_COMMUNITY_ALERTS_CHANNEL ?? "community-reddit-alerts";
 
 // Schema for sentiment analysis result
 const HelpSeekingAnalysisSchema = z.object({
@@ -185,7 +180,6 @@ async function handlePostCreated(data: DiscourseWebhookPayload) {
 
     if (analysis.isSeekingHelp) {
       console.log("🚨 USER NEEDS HELP - This post should be escalated!");
-      await sendSlackAlert(post, analysis);
     }
   } catch (error) {
     console.error("Error analyzing post sentiment:", error);
@@ -223,86 +217,4 @@ Do NOT classify as seeking help if:
   });
 
   return result.object;
-}
-
-/**
- * Send Slack alert to the configured community alerts channel
- */
-async function sendSlackAlert(post: DiscoursePost, analysis: HelpSeekingAnalysis) {
-  try {
-    // Get the mailbox with Slack configuration
-    const mailbox = await db.query.mailboxes.findFirst({
-      columns: {
-        slackBotToken: true,
-      },
-    });
-
-    if (!mailbox?.slackBotToken) {
-      console.log("No Slack bot token found, skipping Slack notification");
-      return;
-    }
-
-    const channels = await listSlackChannels(mailbox.slackBotToken);
-    const targetChannel = channels.find((ch) => ch.name === SLACK_COMMUNITY_ALERTS_CHANNEL);
-
-    if (!targetChannel?.id) {
-      console.error(`Could not find #${SLACK_COMMUNITY_ALERTS_CHANNEL} channel`);
-      return;
-    }
-
-    // Build the Discourse post URL
-    const discourseOrigin = process.env.DISCOURSE_ORIGIN ?? "https://epicurerobotics.com";
-    const discourseUrl = new URL(post.post_url, discourseOrigin).href;
-
-    // Post to Slack
-    await postSlackMessage(mailbox.slackBotToken, {
-      channel: targetChannel.id,
-      text: `🚨 Help needed in community: ${post.topic_title}`,
-      blocks: [
-        {
-          type: "section",
-          fields: [
-            {
-              type: "mrkdwn",
-              text: `*Topic:*\n${post.topic_title}`,
-            },
-            {
-              type: "mrkdwn",
-              text: `*Author:*\n${post.username}`,
-            },
-            {
-              type: "mrkdwn",
-              text: `*Category:*\n${analysis.category}`,
-            },
-          ],
-        },
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*Post Content:*\n${post.raw.substring(0, 500)}${post.raw.length > 500 ? "..." : ""}`,
-          },
-        },
-        {
-          type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: {
-                type: "plain_text",
-                text: "View on Discourse",
-                emoji: true,
-              },
-              url: discourseUrl,
-              style: "primary",
-            },
-          ],
-        },
-      ],
-    });
-
-    console.log(`✅ Slack alert sent to #${SLACK_COMMUNITY_ALERTS_CHANNEL} for post ${post.id}`);
-  } catch (error) {
-    console.error("Error sending Slack alert:", error);
-  }
 }

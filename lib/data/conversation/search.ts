@@ -22,14 +22,15 @@ import { db } from "@/db/client";
 import { conversationEvents, conversationMessages, conversations, mailboxes, platformCustomers } from "@/db/schema";
 import { serializeConversation } from "@/lib/data/conversation";
 import { searchSchema } from "@/lib/data/conversation/searchSchema";
-import {
-  CLOSED_BY_AGENT_MESSAGE,
-  MARKED_AS_SPAM_BY_AGENT_MESSAGE,
-  REOPENED_BY_AGENT_MESSAGE,
-} from "@/lib/slack/constants";
 import "server-only";
 import { z } from "zod";
 import { searchEmailsByKeywords } from "../../emailSearchService/searchEmailsByKeywords";
+
+// Historical reason strings logged by the now-removed Slack agent; kept so old
+// conversations closed/reopened/spammed by it remain filterable.
+const CLOSED_BY_AGENT_MESSAGE = "Closed by agent";
+const REOPENED_BY_AGENT_MESSAGE = "Reopened by agent";
+const MARKED_AS_SPAM_BY_AGENT_MESSAGE = "Marked as spam by agent";
 
 export const searchConversations = async (
   mailbox: typeof mailboxes.$inferSelect,

@@ -12,19 +12,6 @@ import {
 } from "@/lib/data/conversationMessage";
 import { addNote } from "@/lib/data/note";
 import { getFullProfileByEmail, getFullProfileById, getUsersWithMailboxAccess } from "@/lib/data/user";
-import {
-  getCustomerOrdersByEmail as fetchShopifyOrdersByEmail,
-  isShopifyConfigured,
-  searchOrderByName,
-} from "@/lib/shopify/client";
-import {
-  ShopifyApiError,
-  type ShopifyAddress,
-  type ShopifyCustomer,
-  type ShopifyFulfillment,
-  type ShopifyLineItem,
-  type ShopifyOrderWithUrl,
-} from "@/lib/shopify/types";
 import { helperMcpEnv } from "./env.js";
 
 export const HELPER_TICKET_STATUSES = [
@@ -144,7 +131,6 @@ export type HelperTimelineEntry = {
   cc: string[];
   bcc: string[];
   files: HelperTicketFile[];
-  slack_url: string | null;
   metadata: Record<string, unknown> | null;
   reaction_type: string | null;
   reaction_feedback: string | null;
@@ -254,7 +240,6 @@ export type HelperAssignTicketInput = {
 export type HelperAddNoteInput = {
   ticketSlug: string;
   note: string;
-  slackChannelId?: string;
 };
 
 export type HelperTicketMutationResult = {
@@ -268,115 +253,6 @@ export type HelperReplyResult = HelperTicketMutationResult & {
 
 export type HelperNoteResult = HelperTicketMutationResult & {
   note_id: number;
-};
-
-export type HelperShopifyLookupMode = "email" | "order_number";
-
-export type HelperShopifyCustomer = {
-  id: number;
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
-  orders_count: number;
-  total_spent: string;
-  created_at: string;
-  updated_at: string;
-};
-
-export type HelperShopifyAddress = {
-  address1: string | null;
-  address2: string | null;
-  city: string | null;
-  province: string | null;
-  province_code: string | null;
-  country: string | null;
-  country_code: string | null;
-  zip: string | null;
-  name: string | null;
-  phone: string | null;
-};
-
-export type HelperShopifyLineItem = {
-  id: number;
-  variant_id: number | null;
-  title: string;
-  quantity: number;
-  price: string;
-  sku: string | null;
-  variant_title: string | null;
-  vendor: string | null;
-  product_id: number | null;
-  fulfillment_status: "fulfilled" | "partial" | "unfulfilled" | null;
-  name: string;
-};
-
-export type HelperShopifyFulfillment = {
-  id: number;
-  order_id: number;
-  status: string;
-  created_at: string;
-  service: string | null;
-  updated_at: string;
-  tracking_company: string | null;
-  shipment_status: string | null;
-  tracking_number: string | null;
-  tracking_numbers: string[];
-  tracking_url: string | null;
-  tracking_urls: string[];
-  line_items: HelperShopifyLineItem[];
-  name: string;
-  delivery_date: string | null;
-  delivery_status: string | null;
-  estimated_delivery_date: string | null;
-  latest_event_date: string | null;
-  latest_event_status: string | null;
-};
-
-export type HelperShopifyOrder = {
-  id: number;
-  email: string;
-  created_at: string;
-  updated_at: string;
-  note: string | null;
-  total_price: string;
-  subtotal_price: string;
-  total_weight: number;
-  total_tax: string;
-  taxes_included: boolean;
-  currency: string;
-  financial_status: "pending" | "authorized" | "partially_paid" | "paid" | "partially_refunded" | "refunded" | "voided";
-  confirmed: boolean;
-  total_discounts: string;
-  total_line_items_price: string;
-  name: string;
-  order_number: number;
-  processed_at: string;
-  fulfillment_status: "fulfilled" | "partial" | "unfulfilled" | null;
-  line_items: HelperShopifyLineItem[];
-  shipping_address: HelperShopifyAddress | null;
-  billing_address: HelperShopifyAddress | null;
-  customer: {
-    id: number;
-    email: string;
-    first_name: string | null;
-    last_name: string | null;
-  };
-  fulfillments: HelperShopifyFulfillment[];
-  admin_url: string;
-};
-
-export type HelperShopifyLookupResult = {
-  acting_as: HelperUserSummary;
-  lookup: {
-    mode: HelperShopifyLookupMode;
-    value: string;
-  };
-  configured: boolean;
-  found: boolean;
-  customer: HelperShopifyCustomer | null;
-  orders: HelperShopifyOrder[];
-  total_orders: number;
-  error: string | null;
 };
 
 const ACTIVE_MAILBOX_CONDITION = isNull(sql`${mailboxes.preferences}->>'disabled'`);
@@ -488,123 +364,6 @@ const mapCustomerFromDetail = (conversation: {
   links: conversation.customerInfo?.links ?? null,
   metadata: conversation.customerInfo?.metadata ?? null,
 });
-
-const mapShopifyCustomer = (customer: ShopifyCustomer | null): HelperShopifyCustomer | null =>
-  customer
-    ? {
-        id: customer.id,
-        email: customer.email,
-        first_name: customer.first_name,
-        last_name: customer.last_name,
-        orders_count: customer.orders_count,
-        total_spent: customer.total_spent,
-        created_at: customer.created_at,
-        updated_at: customer.updated_at,
-      }
-    : null;
-
-const mapShopifyAddress = (address: ShopifyAddress | null): HelperShopifyAddress | null =>
-  address
-    ? {
-        address1: address.address1,
-        address2: address.address2,
-        city: address.city,
-        province: address.province,
-        province_code: address.province_code,
-        country: address.country,
-        country_code: address.country_code,
-        zip: address.zip,
-        name: address.name,
-        phone: address.phone,
-      }
-    : null;
-
-const mapShopifyLineItem = (lineItem: ShopifyLineItem): HelperShopifyLineItem => ({
-  id: lineItem.id,
-  variant_id: lineItem.variant_id,
-  title: lineItem.title,
-  quantity: lineItem.quantity,
-  price: lineItem.price,
-  sku: lineItem.sku,
-  variant_title: lineItem.variant_title,
-  vendor: lineItem.vendor,
-  product_id: lineItem.product_id,
-  fulfillment_status: lineItem.fulfillment_status,
-  name: lineItem.name,
-});
-
-const mapShopifyFulfillment = (fulfillment: ShopifyFulfillment): HelperShopifyFulfillment => ({
-  id: fulfillment.id,
-  order_id: fulfillment.order_id,
-  status: fulfillment.status,
-  created_at: fulfillment.created_at,
-  service: fulfillment.service,
-  updated_at: fulfillment.updated_at,
-  tracking_company: fulfillment.tracking_company,
-  shipment_status: fulfillment.shipment_status,
-  tracking_number: fulfillment.tracking_number,
-  tracking_numbers: fulfillment.tracking_numbers,
-  tracking_url: fulfillment.tracking_url,
-  tracking_urls: fulfillment.tracking_urls,
-  line_items: fulfillment.line_items.map(mapShopifyLineItem),
-  name: fulfillment.name,
-  delivery_date: fulfillment.delivery_date ?? null,
-  delivery_status: fulfillment.delivery_status ?? null,
-  estimated_delivery_date: fulfillment.estimated_delivery_date ?? null,
-  latest_event_date: fulfillment.latest_event_date ?? null,
-  latest_event_status: fulfillment.latest_event_status ?? null,
-});
-
-const mapShopifyOrder = (order: ShopifyOrderWithUrl): HelperShopifyOrder => ({
-  id: order.id,
-  email: order.email,
-  created_at: order.created_at,
-  updated_at: order.updated_at,
-  note: order.note,
-  total_price: order.total_price,
-  subtotal_price: order.subtotal_price,
-  total_weight: order.total_weight,
-  total_tax: order.total_tax,
-  taxes_included: order.taxes_included,
-  currency: order.currency,
-  financial_status: order.financial_status,
-  confirmed: order.confirmed,
-  total_discounts: order.total_discounts,
-  total_line_items_price: order.total_line_items_price,
-  name: order.name,
-  order_number: order.order_number,
-  processed_at: order.processed_at,
-  fulfillment_status: order.fulfillment_status,
-  line_items: order.line_items.map(mapShopifyLineItem),
-  shipping_address: mapShopifyAddress(order.shipping_address),
-  billing_address: mapShopifyAddress(order.billing_address),
-  customer: {
-    id: order.customer.id,
-    email: order.customer.email,
-    first_name: order.customer.first_name,
-    last_name: order.customer.last_name,
-  },
-  fulfillments: (order.fulfillments ?? []).map(mapShopifyFulfillment),
-  admin_url: order.admin_url,
-});
-
-const mapShopifyError = (error: unknown, fallback: string) => {
-  if (error instanceof ShopifyApiError) {
-    if (error.statusCode === 401) {
-      return "Invalid Shopify credentials";
-    }
-    if (error.statusCode === 403) {
-      return "Insufficient Shopify API permissions";
-    }
-    if (error.statusCode === 429) {
-      return "Shopify rate limit exceeded. Please try again later.";
-    }
-
-    return error.message;
-  }
-
-  return error instanceof Error ? error.message : fallback;
-};
 
 const getActiveMailbox = async () => {
   const mailbox = await db.query.mailboxes.findFirst({
@@ -830,108 +589,6 @@ export class HelperMcpService {
     );
   }
 
-  async getShopifyOrdersByEmail(input: { email: string }): Promise<HelperShopifyLookupResult> {
-    if (!isShopifyConfigured()) {
-      return {
-        acting_as: this.actingAs,
-        lookup: {
-          mode: "email",
-          value: input.email,
-        },
-        configured: false,
-        found: false,
-        customer: null,
-        orders: [],
-        total_orders: 0,
-        error: null,
-      };
-    }
-
-    try {
-      const { customer, orders } = await fetchShopifyOrdersByEmail(input.email);
-
-      return {
-        acting_as: this.actingAs,
-        lookup: {
-          mode: "email",
-          value: input.email,
-        },
-        configured: true,
-        found: Boolean(customer) || orders.length > 0,
-        customer: mapShopifyCustomer(customer),
-        orders: orders.map(mapShopifyOrder),
-        total_orders: orders.length,
-        error: null,
-      };
-    } catch (error) {
-      return {
-        acting_as: this.actingAs,
-        lookup: {
-          mode: "email",
-          value: input.email,
-        },
-        configured: true,
-        found: false,
-        customer: null,
-        orders: [],
-        total_orders: 0,
-        error: mapShopifyError(error, "Failed to fetch Shopify orders"),
-      };
-    }
-  }
-
-  async getShopifyOrderByNumber(input: { orderNumber: string }): Promise<HelperShopifyLookupResult> {
-    const orderNumber = input.orderNumber.trim();
-
-    if (!isShopifyConfigured()) {
-      return {
-        acting_as: this.actingAs,
-        lookup: {
-          mode: "order_number",
-          value: orderNumber,
-        },
-        configured: false,
-        found: false,
-        customer: null,
-        orders: [],
-        total_orders: 0,
-        error: null,
-      };
-    }
-
-    try {
-      const { customer, orders } = await searchOrderByName(orderNumber);
-
-      return {
-        acting_as: this.actingAs,
-        lookup: {
-          mode: "order_number",
-          value: orderNumber,
-        },
-        configured: true,
-        found: orders.length > 0,
-        customer: mapShopifyCustomer(customer),
-        orders: orders.map(mapShopifyOrder),
-        total_orders: orders.length,
-        error: null,
-      };
-    } catch (error) {
-      return {
-        acting_as: this.actingAs,
-        lookup: {
-          mode: "order_number",
-          value: orderNumber,
-        },
-        configured: true,
-        found: false,
-        customer: null,
-        orders: [],
-        total_orders: 0,
-        error: mapShopifyError(error, "Failed to fetch Shopify order"),
-      };
-    }
-  }
-
   async replyToTicket(input: HelperReplyInput): Promise<HelperReplyResult> {
     const conversation = await getConversationBySlug(input.ticketSlug);
 
@@ -1083,7 +740,6 @@ export class HelperMcpService {
         displayName: this.user.displayName,
         email: this.user.email,
       },
-      slackChannelId: input.slackChannelId,
     });
 
     return {
@@ -1336,7 +992,6 @@ export class HelperMcpService {
             ),
           )
         : [],
-      slack_url: (entry.slackUrl as string | null | undefined) ?? null,
       metadata: (entry.metadata as Record<string, unknown> | null | undefined) ?? null,
       reaction_type: (entry.reactionType as string | null | undefined) ?? null,
       reaction_feedback: (entry.reactionFeedback as string | null | undefined) ?? null,

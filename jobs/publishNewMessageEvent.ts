@@ -39,7 +39,7 @@ export const publishNewMessageEvent = async ({ messageId }: { messageId: number 
     await publishToRealtime({
       channel: conversationChannelId(message.conversation.slug),
       event: "conversation.message",
-      data: await serializeMessage(message, message.conversation.id, mailbox),
+      data: await serializeMessage(message, message.conversation.id),
       trim: (data, amount) => ({
         ...data,
         body: data.body && amount < data.body.length ? data.body.slice(0, data.body.length - amount) : null,

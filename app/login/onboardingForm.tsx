@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,8 +17,16 @@ export function OnboardingForm({ className, ...props }: React.ComponentPropsWith
   const [displayName, setDisplayName] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  const { theme, systemTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
+
+  // Avoid SSR/client hydration mismatch: render the light logo until mounted, then swap.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const logoSrc = mounted && resolvedTheme === "dark" ? "/logo-white.svg" : "/logo.svg";
 
   const onboardMutation = api.user.onboard.useMutation({
     onSuccess: async (data) => {
@@ -57,7 +65,7 @@ export function OnboardingForm({ className, ...props }: React.ComponentPropsWith
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <div className="flex flex-col items-center gap-3">
         <Image
-          src={theme === "dark" || systemTheme === "dark" ? "/logo-white.svg" : "/logo.svg"}
+          src={logoSrc}
           alt="Epicure Assist"
           width="110"
           height="32"

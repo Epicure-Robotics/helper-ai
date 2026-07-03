@@ -97,7 +97,7 @@ export const faqsRouter = {
         content: z.string().optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ input }) => {
       const knowledge = await db.query.faqs.findFirst({
         where: and(eq(faqs.id, input.id)),
       });
@@ -106,7 +106,7 @@ export const faqsRouter = {
         throw new TRPCError({ code: "NOT_FOUND", message: "Knowledge entry not found" });
       }
 
-      await approveSuggestedEdit(knowledge, ctx.mailbox, ctx.user, input.content);
+      await approveSuggestedEdit(knowledge, input.content);
     }),
   reject: mailboxProcedure
     .input(
@@ -114,7 +114,7 @@ export const faqsRouter = {
         id: z.number(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ input }) => {
       const knowledge = await db.query.faqs.findFirst({
         where: and(eq(faqs.id, input.id)),
       });
@@ -123,7 +123,7 @@ export const faqsRouter = {
         throw new TRPCError({ code: "NOT_FOUND", message: "Knowledge entry not found" });
       }
 
-      await rejectSuggestedEdit(knowledge, ctx.mailbox, ctx.user);
+      await rejectSuggestedEdit(knowledge);
     }),
   suggestFromHumanReply: mailboxProcedure
     .input(

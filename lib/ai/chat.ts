@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import { fireworks } from "@ai-sdk/fireworks";
 import { TRPCError } from "@trpc/server";
+import { waitUntil } from "@vercel/functions";
 import {
   appendClientMessage,
   convertToCoreMessages,
@@ -25,8 +26,8 @@ import { ReadPageToolConfig } from "@helperai/sdk";
 import { db } from "@/db/client";
 import { conversationMessages, conversations, files, MessageMetadata, ToolMetadata } from "@/db/schema";
 import { CHAT_MODEL, DRAFT_MODEL, isWithinTokenLimit, MINI_MODEL } from "@/lib/ai/core";
-import { getInstantGreetingReply } from "@/lib/ai/instantGreeting";
 import { customerInfoPrompt } from "@/lib/ai/customerInfoPrompt";
+import { getInstantGreetingReply } from "@/lib/ai/instantGreeting";
 import openai from "@/lib/ai/openai";
 import { PromptInfo } from "@/lib/ai/promptInfo";
 import {
@@ -56,7 +57,6 @@ import {
 } from "@/lib/epicure/companyKnowledge";
 import { CustomerInfo, fetchCustomerInfo } from "@/lib/metadataApiClient";
 import { trackAIUsageEvent } from "../data/aiUsageEvents";
-import { waitUntil } from "@vercel/functions";
 import { captureExceptionAndLog, captureExceptionAndThrowIfDevelopment } from "../shared/sentry";
 
 export { getInstantGreetingReply } from "@/lib/ai/instantGreeting";
@@ -201,11 +201,10 @@ export const buildPromptMessages = async (
       ? fetchFastWidgetRetrievalData(mailbox.id)
       : fetchPromptRetrievalData(query, null, mailbox.id);
 
-  const [{ knowledgeBank, knowledgeBankEntryIds, websitePagesPrompt, websitePages }, customerInfo] =
-    await Promise.all([
-      retrievalPromise,
-      email && customerInfoUrl ? fetchCustomerInfo(email, customerInfoUrl, mailbox) : null,
-    ]);
+  const [{ knowledgeBank, knowledgeBankEntryIds, websitePagesPrompt, websitePages }, customerInfo] = await Promise.all([
+    retrievalPromise,
+    email && customerInfoUrl ? fetchCustomerInfo(email, customerInfoUrl, mailbox) : null,
+  ]);
 
   const basePrompt = draftPromptOverride ?? (isDraftMode ? DRAFT_SYSTEM_PROMPT : CHAT_SYSTEM_PROMPT);
   const systemPrompt = [
@@ -452,7 +451,6 @@ export const generateAIResponse = async ({
           conversationId,
           email,
           includeHumanSupport: true,
-          includeShopifyTools: false,
           guideEnabled,
           includeMailboxTools: true,
           includePastConversationSearch: true,

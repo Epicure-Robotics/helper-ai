@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm";
 import { jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { authUsers } from "../supabaseSchema/auth";
 import type { LeadRoutingRole } from "@/lib/leads/inboundTriage";
+import { authUsers } from "../supabaseSchema/auth";
 
 /** Legacy JSON may still contain "core" | "nonCore" — normalize to active/afk when reading. */
 export type MailboxAccessRole = "active" | "afk" | "core" | "nonCore";
@@ -36,7 +36,6 @@ export const userProfiles = pgTable("user_profiles", {
       notifications?: {
         webPushEnabled?: boolean;
         inAppToastEnabled?: boolean;
-        slackDMEnabled?: boolean;
         notifyOnNewMessage?: boolean;
         notifyOnAssignment?: boolean;
         notifyOnNote?: boolean;

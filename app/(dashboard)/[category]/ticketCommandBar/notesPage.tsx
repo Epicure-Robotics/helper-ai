@@ -5,7 +5,6 @@ import { useConversationContext } from "@/app/(dashboard)/[category]/conversatio
 import { FileUploadProvider, UploadStatus, useFileUpload } from "@/components/fileUploadContext";
 import FileAttachment from "@/components/tiptap/fileAttachment";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/trpc/react";
 
@@ -17,15 +16,9 @@ const NotesPageContent = ({ onOpenChange }: NotesPageProps) => {
   const { conversationSlug } = useConversationContext();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedChannelId, setSelectedChannelId] = useState<string>("");
   const utils = api.useUtils();
   const { unsavedFiles, onUpload, onRetry } = useFileUpload();
   const attachments = unsavedFiles.filter((f) => !f.inline);
-
-  // Fetch available Slack channels
-  const { data: slackChannels, isLoading: isLoadingChannels } = api.mailbox.slack.channels.useQuery(undefined, {
-    retry: false,
-  });
 
   const addNote = api.mailbox.conversations.notes.add.useMutation({
     onSuccess: () => {
@@ -52,7 +45,6 @@ const NotesPageContent = ({ onOpenChange }: NotesPageProps) => {
         conversationSlug,
         message,
         fileSlugs,
-        slackChannelId: selectedChannelId || undefined,
       },
       {
         onSettled: () => setIsSubmitting(false),
@@ -78,26 +70,6 @@ const NotesPageContent = ({ onOpenChange }: NotesPageProps) => {
   return (
     <div className="flex-1 flex flex-col p-4">
       <h3 className="font-medium mb-4">Add Internal Note</h3>
-
-      {/* Slack Channel Selector */}
-      {slackChannels && slackChannels.length > 0 && (
-        <div className="mb-4">
-          <label className="text-sm font-medium mb-2 block">Post to Slack Channel (optional)</label>
-          <Select value={selectedChannelId} onValueChange={setSelectedChannelId}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Default alert channel" />
-            </SelectTrigger>
-            <SelectContent>
-              {slackChannels.map((channel) => (
-                <SelectItem key={channel.id} value={channel.id}>
-                  #{channel.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-      {isLoadingChannels && <div className="mb-4 text-sm text-muted-foreground">Loading Slack channels...</div>}
 
       <Textarea
         ref={textareaRef}

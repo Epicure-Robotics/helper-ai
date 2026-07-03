@@ -148,7 +148,7 @@ export const ConditionsEditor = ({ issueGroupId }: ConditionsEditorProps) => {
             className="text-sm"
           />
           <Textarea
-            placeholder="Condition to test (e.g. 'Customer has recent Shopify order')"
+            placeholder="Condition to test (e.g. 'Customer is a VIP')"
             value={testCondition}
             onChange={(e) => setTestCondition(e.target.value)}
             rows={2}
@@ -215,7 +215,7 @@ export const ConditionsEditor = ({ issueGroupId }: ConditionsEditorProps) => {
       {/* Add New Condition */}
       <div className="space-y-2 p-3 border rounded-lg">
         <Textarea
-          placeholder="Condition (e.g., 'User has orders on Shopify')"
+          placeholder="Condition (e.g., 'User is on the Pro plan')"
           value={newCondition}
           onChange={(e) => setNewCondition(e.target.value)}
           rows={2}

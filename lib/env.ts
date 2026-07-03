@@ -106,10 +106,6 @@ export const env = createEnv({
 
     // Other optional integrations
 
-    // Slack OAuth client credentials from https://api.slack.com/apps
-    SLACK_CLIENT_ID: emptyUnsetOptString(),
-    SLACK_CLIENT_SECRET: emptyUnsetOptString(),
-    SLACK_SIGNING_SECRET: emptyUnsetOptString(),
     // GitHub app credentials from https://github.com/apps
     GITHUB_APP_SLUG: emptyUnsetOptString(),
     GITHUB_APP_ID: emptyUnsetOptString(),
@@ -127,14 +123,6 @@ export const env = createEnv({
     APPLE_TEAM_ID: emptyUnsetOptString(),
     APPLE_PRIVATE_KEY: emptyUnsetOptString(),
     APPLE_PRIVATE_KEY_IDENTIFIER: emptyUnsetOptString(),
-    // Shopify integration for displaying customer orders
-    SHOPIFY_SHOP_DOMAIN: emptyUnsetOptString(), // Your Shopify store domain (e.g., yourstore.myshopify.com)
-    SHOPIFY_ADMIN_ACCESS_TOKEN: emptyUnsetOptString(), // Admin API access token from custom app
-    SHOPIFY_API_VERSION: z.preprocess(
-      (v: unknown) => (typeof v === "string" && v.trim() === "" ? undefined : v),
-      z.string().min(1).optional().default("2025-01"),
-    ), // Shopify API version
-    REVENUECAT_API_KEY: emptyUnsetOptString(), // API key from https://revenuecat.com for subscription checking
     // Cal.com API integration for webhook handling
     CAL_API_KEY: emptyUnsetOptString(), // API key from https://cal.com for webhook integration
 
