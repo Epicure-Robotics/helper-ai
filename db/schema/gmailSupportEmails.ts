@@ -9,6 +9,8 @@ export const gmailSupportEmails = pgTable(
     ...withTimestamps,
     id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
     email: varchar({ length: 254 }).notNull(),
+    // Expiry of the active Gmail push watch (users.watch), refreshed by the daily
+    // renewMailboxWatches job; a past date means renewals are failing.
     expiresAt: timestamp({ withTimezone: true, mode: "date" }),
     historyId: integer(),
     accessToken: text("access_token"),

@@ -32,9 +32,10 @@ import { toolsRouter } from "./tools";
 
 export const conversationsRouter = {
   list: mailboxProcedure.input(searchSchema).query(async ({ input, ctx }) => {
-    const [{ list }, platformCustomer] = await Promise.all([
+    const [{ list }, platformCustomer, gmailSupportEmail] = await Promise.all([
       searchConversations(ctx.mailbox, input, ctx.user.id),
       db.query.platformCustomers.findFirst({ columns: { id: true } }),
+      getGmailSupportEmail(ctx.mailbox),
     ]);
 
     const { results, nextCursor } = await list;
@@ -47,7 +48,7 @@ export const conversationsRouter = {
       onboardingState: {
         hasSmtp: isSmtpConfigured(),
         hasWidgetHost: !!ctx.mailbox.chatIntegrationUsed,
-        hasGmailSupportEmail: !!(await getGmailSupportEmail(ctx.mailbox)),
+        hasGmailSupportEmail: !!gmailSupportEmail,
       },
       assignedToIds: input.assignee ?? null,
       nextCursor,

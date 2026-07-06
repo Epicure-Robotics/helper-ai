@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { AppSidebar } from "@/app/(dashboard)/appSidebar";
 import AutoReplyBanner from "@/app/(dashboard)/autoReplyBanner";
 import InboxClientLayout from "@/app/(dashboard)/clientLayout";
+import GmailWatchBanner from "@/app/(dashboard)/gmailWatchBanner";
 import { StandaloneDisplayIntegration } from "@/app/(dashboard)/standaloneDisplayIntegration";
 import { TopCommandBar } from "@/app/(dashboard)/topCommandBar";
 import { SentryContext } from "@/components/sentryContext";
@@ -45,6 +46,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <AppSidebar />
                   </Suspense>
                   <div className="flex-1 min-w-0 flex flex-col bg-sidebar">
+                    <Suspense>
+                      <GmailWatchBanner />
+                    </Suspense>
                     <Suspense>
                       <AutoReplyBanner />
                     </Suspense>

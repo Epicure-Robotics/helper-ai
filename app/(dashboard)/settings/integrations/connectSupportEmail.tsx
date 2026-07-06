@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
 import type { ReactNode } from "react";
+import { toast } from "sonner";
 import { ConfirmationDialog } from "@/components/confirmationDialog";
 import LoadingSpinner from "@/components/loadingSpinner";
 import { Alert } from "@/components/ui/alert";
@@ -17,11 +18,10 @@ function gmailConnectionErrorAlert(error: string | null): ReactNode {
       <Alert variant="destructive">
         <p className="font-medium">Google blocked sign-in (access denied).</p>
         <p className="mt-2 text-sm">
-          If the OAuth app is still in{" "}
-          <strong className="font-medium">Testing</strong> mode in Google Cloud Console, open{" "}
-          <strong className="font-medium">APIs &amp; Services → OAuth consent screen → Test users</strong> and add every
-          Google account that should connect Gmail—including the inbox you sign in with. Alternatively publish the app
-          (sensitive Gmail scopes usually require verification).{" "}
+          If the OAuth app is still in <strong className="font-medium">Testing</strong> mode in Google Cloud Console,
+          open <strong className="font-medium">APIs &amp; Services → OAuth consent screen → Test users</strong> and add
+          every Google account that should connect Gmail—including the inbox you sign in with. Alternatively publish the
+          app (sensitive Gmail scopes usually require verification).{" "}
           <Link className="underline font-medium" href="https://console.cloud.google.com/apis/credentials/consent">
             Open OAuth consent settings
           </Link>
@@ -37,7 +37,8 @@ function gmailConnectionErrorAlert(error: string | null): ReactNode {
         Something went wrong while finishing Gmail connection on the server. Check that{" "}
         <code className="rounded bg-muted px-1 py-0.5 text-xs">AUTH_URL</code> on Vercel matches this site&apos;s URL
         and that the Google client&apos;s authorized redirect URI includes{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-xs">{"<this-site-origin>/api/connect/google/callback"}</code>.
+        <code className="rounded bg-muted px-1 py-0.5 text-xs">{"<this-site-origin>/api/connect/google/callback"}</code>
+        .
       </Alert>
     );
   }
@@ -49,7 +50,16 @@ const ConnectSupportEmail = () => {
   const router = useRouter();
   const [error] = useQueryState("error");
   const [detail] = useQueryState("detail");
-  const { mutateAsync: deleteSupportEmailMutation } = api.gmailSupportEmail.delete.useMutation();
+  const utils = api.useUtils();
+  const { mutateAsync: deleteSupportEmailMutation } = api.gmailSupportEmail.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Gmail disconnected");
+      void utils.gmailSupportEmail.get.invalidate();
+    },
+    onError: (error) => {
+      toast.error("Failed to disconnect Gmail", { description: error.message });
+    },
+  });
   const { data: { supportAccount, enabled } = {}, isLoading } = api.gmailSupportEmail.get.useQuery();
 
   return (

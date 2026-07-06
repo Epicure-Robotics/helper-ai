@@ -1,11 +1,14 @@
 import { TRPCError, type TRPCRouterRecord } from "@trpc/server";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
+import { gmailSupportEmails } from "@/db/schema";
 import { processGmailThread } from "@/jobs/importRecentGmailThreads";
 import { triggerEvent } from "@/jobs/trigger";
 import { createGmailSupportEmail, deleteGmailSupportEmail, getGmailSupportEmail } from "@/lib/data/gmailSupportEmail";
 import { env } from "@/lib/env";
 import { getGmailService, subscribeToMailbox } from "@/lib/gmail/client";
+import { captureExceptionAndLog } from "@/lib/shared/sentry";
 import { mailboxProcedure } from "./mailbox";
 
 export const gmailSupportEmailRouter = {
@@ -22,6 +25,9 @@ export const gmailSupportEmailRouter = {
             id: gmailSupportEmail.id,
             email: gmailSupportEmail.email,
             createdAt: gmailSupportEmail.createdAt,
+            // expiresAt tracks the active Gmail watch; the daily renew job keeps it ~7 days
+            // ahead, so a past date means renewals are failing and inbound mail is dead.
+            watchBroken: !!gmailSupportEmail.expiresAt && gmailSupportEmail.expiresAt < new Date(),
           }
         : null,
     };
@@ -40,7 +46,13 @@ export const gmailSupportEmailRouter = {
       const { gmailSupportEmail } = await db.transaction(async (tx) => {
         const gmailSupportEmail = await createGmailSupportEmail(input, tx);
         const gmailService = getGmailService(gmailSupportEmail);
-        await subscribeToMailbox(gmailService);
+        const { data } = await subscribeToMailbox(gmailService);
+        if (data.expiration) {
+          await tx
+            .update(gmailSupportEmails)
+            .set({ expiresAt: new Date(Number(data.expiration)) })
+            .where(eq(gmailSupportEmails.id, gmailSupportEmail.id));
+        }
         return { gmailSupportEmail };
       });
       await triggerEvent("gmail/import-recent-threads", {
@@ -53,8 +65,15 @@ export const gmailSupportEmailRouter = {
       if (!gmailSupportEmail) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Gmail support email not found" });
       }
-      const gmailService = getGmailService(gmailSupportEmail);
-      await gmailService.users.stop({ userId: "me" });
+      // Best-effort: stop the Gmail watch, but don't block disconnect when the
+      // token is already revoked (users.stop throws invalid_grant, and the watch
+      // is dead in that case anyway).
+      try {
+        const gmailService = getGmailService(gmailSupportEmail);
+        await gmailService.users.stop({ userId: "me" });
+      } catch (error) {
+        captureExceptionAndLog(error, { extra: { gmailSupportEmailId: gmailSupportEmail.id } });
+      }
       await deleteGmailSupportEmail(tx, gmailSupportEmail.id);
       return { message: "Support email deleted successfully." };
     });

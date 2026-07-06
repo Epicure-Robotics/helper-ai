@@ -77,22 +77,24 @@ export const membersRouter = {
     }),
 
   list: mailboxProcedure.query(async ({ ctx }) => {
-    const members = await getUsersWithMailboxAccess();
-
-    const memberCounts = await db
-      .select({
-        assignedToId: conversations.assignedToId,
-        count: count(),
-      })
-      .from(conversations)
-      .where(
-        and(
-          eq(conversations.status, "open"),
-          isNotNull(conversations.assignedToId),
-          isNull(conversations.mergedIntoId),
-        ),
-      )
-      .groupBy(conversations.assignedToId);
+    const [members, memberCounts, profile] = await Promise.all([
+      getUsersWithMailboxAccess(),
+      db
+        .select({
+          assignedToId: conversations.assignedToId,
+          count: count(),
+        })
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.status, "open"),
+            isNotNull(conversations.assignedToId),
+            isNull(conversations.mergedIntoId),
+          ),
+        )
+        .groupBy(conversations.assignedToId),
+      getProfile(ctx.user.id),
+    ]);
 
     const membersWithCounts = members.map((member) => ({
       ...member,
@@ -101,7 +103,7 @@ export const membersRouter = {
 
     return {
       members: membersWithCounts,
-      isAdmin: isAdmin(await getProfile(ctx.user.id)),
+      isAdmin: isAdmin(profile),
     };
   }),
 

@@ -53,7 +53,7 @@ export const userRouter = {
       try {
         await sendEmail({
           to: assertDefined(user.email),
-          subject: `Your OTP for Helper: ${data.properties.email_otp}`,
+          subject: "Your Epicure Assist sign-in code",
           react: OtpEmail({ otp: data.properties.email_otp }),
         });
         return { email: true };

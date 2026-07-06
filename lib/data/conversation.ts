@@ -318,7 +318,11 @@ export const serializeConversationWithMessages = async (
   mailbox: typeof mailboxes.$inferSelect,
   conversation: typeof conversations.$inferSelect,
 ) => {
-  const platformCustomer = conversation.emailFrom ? await getPlatformCustomer(conversation.emailFrom) : null;
+  const [platformCustomer, messages, nonSupportParticipants] = await Promise.all([
+    conversation.emailFrom ? getPlatformCustomer(conversation.emailFrom) : null,
+    getMessages(conversation.id),
+    getNonSupportParticipants(conversation),
+  ]);
 
   const mergedInto = null;
 
@@ -335,8 +339,8 @@ export const serializeConversationWithMessages = async (
         }
       : null,
     draft: null,
-    messages: await getMessages(conversation.id),
-    cc: (await getNonSupportParticipants(conversation)).join(", "),
+    messages,
+    cc: nonSupportParticipants.join(", "),
   };
 };
 
