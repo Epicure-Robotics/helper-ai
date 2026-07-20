@@ -43,9 +43,10 @@ export const userRouter = {
       email: user.email ?? "",
     });
     if (error) {
+      captureExceptionAndLog(error);
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to generate OTP",
+        message: `Failed to generate OTP: ${error.message}`,
       });
     }
 
