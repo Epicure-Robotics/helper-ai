@@ -27,12 +27,22 @@ jobs:
 
       - name: Write .env.production from Secrets Manager
         run: |
-          for NAME in $(aws secretsmanager list-secrets --filter Key=name,Values="epicure-assist/prod/" --query "SecretList[*].Name" --output text); do
+          SECRET_NAMES=$(aws secretsmanager list-secrets --filter Key=name,Values="epicure-assist/prod/" --query "SecretList[*].Name" --output text)
+          if [ -z "$SECRET_NAMES" ]; then
+            echo "::error::No secrets found under epicure-assist/prod/ (or ListSecrets was denied) — refusing to build with a near-empty env file"
+            exit 1
+          fi
+          for NAME in $SECRET_NAMES; do
             VAR=$(basename "$NAME")
             VALUE=$(aws secretsmanager get-secret-value --secret-id "$NAME" --query SecretString --output text)
             echo "${VAR}=${VALUE}" >> .env.production
           done
           echo "EMAIL_SIGNUP_DOMAINS=" >> .env.production
+          LINE_COUNT=$(wc -l < .env.production)
+          if [ "$LINE_COUNT" -lt 15 ]; then
+            echo "::error::Only ${LINE_COUNT} env vars written, expected ~22 — some secret fetches likely failed silently"
+            exit 1
+          fi
 
       - name: Login to ECR
         id: ecr-login
