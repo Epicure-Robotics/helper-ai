@@ -9,6 +9,7 @@ if (!env.NEXT_RUNTIME) {
 }
 
 let nextConfig: NextConfig = {
+  output: process.env.DOCKER_BUILD ? "standalone" : undefined,
   async redirects() {
     return [{ source: "/unassigned", destination: "/all", permanent: true }];
   },
