@@ -59,10 +59,9 @@ jobs:
 
       - name: Run database migration
         run: |
-          set -a; source .env.production; set +a
           corepack enable
           pnpm install --frozen-lockfile
-          pnpm exec drizzle-kit migrate --config ./db/drizzle.config.ts
+          pnpm exec dotenv -e .env.production -- drizzle-kit migrate --config ./db/drizzle.config.ts
 
       - name: Deploy to App Runner
         run: |
