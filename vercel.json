@@ -1,4 +1,0 @@
-{
-  "buildCommand": "sh scripts/vercel.sh",
-  "regions": ["icn1"]
-}
