@@ -1,5 +1,4 @@
 import "@/app/globals.css";
-import { Analytics } from "@vercel/analytics/react";
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
@@ -36,7 +35,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" forcedTheme="light">
           {children}
         </ThemeProvider>
-        <Analytics />
       </body>
     </html>
   );

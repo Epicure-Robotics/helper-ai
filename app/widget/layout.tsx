@@ -1,5 +1,4 @@
 import "@/app/globals.css";
-import { Analytics } from "@vercel/analytics/react";
 import cx from "classnames";
 import type { Metadata } from "next";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
@@ -19,7 +18,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         suppressHydrationWarning
       >
         <NuqsAdapter>{children}</NuqsAdapter>
-        <Analytics />
       </body>
     </html>
   );

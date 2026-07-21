@@ -71,7 +71,7 @@ export const sendGmailEmail = async (client: GmailClient, raw: string, threadId:
 export const getLast10GmailThreads = async (client: GmailClient) => {
   const threads = await client.users.threads.list({
     userId: "me",
-    maxResults: 10,
+    maxResults: 100,
     labelIds: ["INBOX"],
     includeSpamTrash: false,
   });
