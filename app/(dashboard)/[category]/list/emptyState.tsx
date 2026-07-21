@@ -12,8 +12,9 @@ export const NoConversations = ({ filtered, onClearFilters }: { filtered?: boole
   const { conversationListData } = useConversationListContext();
 
   const onboardingState = conversationListData?.onboardingState;
-  const isOnboarding =
-    !onboardingState?.hasSmtp || !onboardingState?.hasWidgetHost || !onboardingState?.hasGmailSupportEmail;
+  // Widget install is a separate, optional feature (embeddable website chat) — email
+  // support only needs SMTP + Gmail, so it shouldn't block seeing an otherwise-populated inbox.
+  const isOnboarding = !onboardingState?.hasSmtp || !onboardingState?.hasGmailSupportEmail;
 
   const shouldShowNoTickets = !input.status?.length || input.status?.[0] === "open";
 
