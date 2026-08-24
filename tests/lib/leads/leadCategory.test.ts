@@ -256,7 +256,9 @@ describe("issue group wiring", () => {
 
   it("every auto-response template has variables — handleTemplateResponse skips those without", () => {
     for (const group of ALL_EPICURE_ISSUE_GROUP_SPECS.filter((g) => g.autoResponseEnabled)) {
-      expect(group.templateBody, group.title).toMatch(/\{\{\w+\}\}/);
+      // Single braces: templateVariables.ts substitutes {name}; {{name}} leaves stray braces behind.
+      expect(group.templateBody, group.title).toMatch(/\{\w+\}/);
+      expect(group.templateBody, `${group.title} must not use doubled braces`).not.toMatch(/\{\{\w+\}\}/);
     }
   });
 });

@@ -2,6 +2,11 @@
  * Canonical Epicure inbox issue groups + default saved-reply bodies.
  * Used by db seed and by scripts/sync-epicure-issue-groups.ts to refresh copy without re-seeding.
  */
+/**
+ * Template variables use SINGLE braces: `{name}`, not `{{name}}`.
+ * lib/utils/templateVariables.ts matches /\{(\w+)\}/, so a doubled brace has its inner pair
+ * substituted and the outer pair left behind — customers received "Hi {Jane Doe},".
+ */
 export type EpicureIssueGroupSpec = {
   title: string;
   description: string;
@@ -22,11 +27,11 @@ export const EPICURE_ISSUE_GROUP_SPECS: EpicureIssueGroupSpec[] = [
       "Venue hosting interest, site partnerships, pilots, or general commercial conversations — not capital-equipment purchase quotes unless published.",
     color: "#2563eb",
     templateName: "Epicure reply — Business lead",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thank you for reaching out about {{specific_use_case}}. We're glad to learn more about what you're building.
+Thank you for reaching out about {specific_use_case}. We're glad to learn more about what you're building.
 
-Regarding scale and scope ({{deal_size_hint}}), our team can recommend the right next step. Could you share your timeline and location?
+Regarding scale and scope ({deal_size_hint}), our team can recommend the right next step. Could you share your timeline and location?
 
 Best regards,
 Epicure Robotics`,
@@ -38,11 +43,11 @@ Epicure Robotics`,
       "Suppliers or manufacturers pitching components, contract manufacturing, or lower-cost alternatives — not a site user or venue hosting inquiry.",
     color: "#7c3aed",
     templateName: "Epicure reply — Vendor pitch",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thanks for your note on {{specific_use_case}}. We review vendor and manufacturing partnerships carefully.
+Thanks for your note on {specific_use_case}. We review vendor and manufacturing partnerships carefully.
 
-Please share capability summary, certifications, and any {{deal_size_hint}} context.
+Please share capability summary, certifications, and any {deal_size_hint} context.
 
 Best,
 Epicure Robotics`,
@@ -53,11 +58,11 @@ Epicure Robotics`,
     description: "Distribution, reseller, or strategic partnership inquiries.",
     color: "#059669",
     templateName: "Epicure reply — Partnership",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-We appreciate your interest in partnership around {{specific_use_case}}.
+We appreciate your interest in partnership around {specific_use_case}.
 
-To route this internally, could you outline regions covered, existing customer base, and {{deal_size_hint}}?
+To route this internally, could you outline regions covered, existing customer base, and {deal_size_hint}?
 
 Best,
 Epicure Robotics`,
@@ -68,11 +73,11 @@ Epicure Robotics`,
     description: "Careers, recruiting, and talent outreach.",
     color: "#d97706",
     templateName: "Epicure reply — Hiring",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thanks for connecting regarding {{specific_use_case}}. For hiring and people-related topics we’ll get you to the right contact.
+Thanks for connecting regarding {specific_use_case}. For hiring and people-related topics we’ll get you to the right contact.
 
-Please share role or opportunity details and {{deal_size_hint}} if relevant.
+Please share role or opportunity details and {deal_size_hint} if relevant.
 
 Best,
 Epicure Robotics`,
@@ -83,11 +88,11 @@ Epicure Robotics`,
     description: "Journalists, podcasts, events, and PR.",
     color: "#db2777",
     templateName: "Epicure reply — Press",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thank you for reaching out about {{specific_use_case}}. We’ll review press and media requests as schedules allow.
+Thank you for reaching out about {specific_use_case}. We’ll review press and media requests as schedules allow.
 
-If there’s a deadline or outlet detail ({{deal_size_hint}}), please note it here.
+If there’s a deadline or outlet detail ({deal_size_hint}), please note it here.
 
 Best,
 Epicure Robotics`,
@@ -98,11 +103,11 @@ Epicure Robotics`,
     description: "Catch-all for messages that do not fit other groups.",
     color: "#64748b",
     templateName: "Epicure reply — General",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thanks for your message about {{specific_use_case}}. We’ve logged your note and will follow up.
+Thanks for your message about {specific_use_case}. We’ve logged your note and will follow up.
 
-If helpful, any extra context ({{deal_size_hint}}) speeds routing.
+If helpful, any extra context ({deal_size_hint}) speeds routing.
 
 Best,
 Epicure Robotics`,
@@ -129,9 +134,9 @@ export const EPICURE_LEAD_CATEGORY_ISSUE_GROUP_SPECS: EpicureIssueGroupSpec[] = 
       "Franchise enquiries, dealerships, and outright machine purchases, from the website form or plain email. Highest-value inbound — routes to founder / sales, human owns the reply.",
     color: "#dc2626",
     templateName: "Epicure reply — Lead: franchise / purchase",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thanks for your interest in {{specific_use_case}} with Epicure Robotics. Franchise and machine purchase enquiries are handled directly by our founding team.
+Thanks for your interest in {specific_use_case} with Epicure Robotics. Franchise and machine purchase enquiries are handled directly by our founding team.
 
 We have your details and someone will be in touch shortly to talk through options and next steps.
 
@@ -145,9 +150,9 @@ Epicure Robotics`,
       "Wants to host a kiosk at their own site in or around Bengaluru. Our home market — high priority, routed to founder / sales.",
     color: "#ea580c",
     templateName: "Epicure reply — Lead: placement (Bengaluru)",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thank you for asking about hosting an Epicure kiosk at {{specific_use_case}}. Bengaluru is our home market, so we can usually move quickly here.
+Thank you for asking about hosting an Epicure kiosk at {specific_use_case}. Bengaluru is our home market, so we can usually move quickly here.
 
 Our team will reach out to confirm site details and schedule a walkthrough.
 
@@ -161,11 +166,11 @@ Epicure Robotics`,
       "Wants to host a kiosk at a site outside Bengaluru. Medium priority — sales tier, templated first reply.",
     color: "#ca8a04",
     templateName: "Epicure reply — Lead: placement (outside Bengaluru)",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thanks for your interest in hosting an Epicure kiosk at {{specific_use_case}}.
+Thanks for your interest in hosting an Epicure kiosk at {specific_use_case}.
 
-We are expanding beyond Bengaluru in phases. To see where your site fits, could you share the city, expected daily footfall, and your timeline ({{deal_size_hint}})?
+We are expanding beyond Bengaluru in phases. To see where your site fits, could you share the city, expected daily footfall, and your timeline ({deal_size_hint})?
 
 Best regards,
 Epicure Robotics`,
@@ -176,11 +181,11 @@ Epicure Robotics`,
     description: "Events, exhibitions, and bulk serving requirements. Short-lead-time, date-driven requests.",
     color: "#0891b2",
     templateName: "Epicure reply — Lead: events & bulk",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thanks for reaching out about {{specific_use_case}}.
+Thanks for reaching out about {specific_use_case}.
 
-So we can check availability, could you confirm the event date, venue, and expected number of servings ({{deal_size_hint}})? Event slots are booked on a first-come basis.
+So we can check availability, could you confirm the event date, venue, and expected number of servings ({deal_size_hint})? Event slots are booked on a first-come basis.
 
 Best regards,
 Epicure Robotics`,
@@ -191,11 +196,11 @@ Epicure Robotics`,
     description: "How the kiosks work, specs, footprint, demos. Informational — answerable from the knowledge base.",
     color: "#2563eb",
     templateName: "Epicure reply — Lead: product enquiry",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thanks for your question about {{specific_use_case}}.
+Thanks for your question about {specific_use_case}.
 
-{{answer}}
+{answer}
 
 If you would like to see a kiosk in action, our demos are at https://epicurerobotics.com/demos.
 
@@ -208,11 +213,11 @@ Epicure Robotics`,
     description: "A genuine lead or enquiry fitting no other category. Catch-all — core round-robin.",
     color: "#64748b",
     templateName: "Epicure reply — Lead: other",
-    templateBody: `Hi {{name}},
+    templateBody: `Hi {name},
 
-Thanks for getting in touch about {{specific_use_case}}. We have logged your message and will route it to the right person.
+Thanks for getting in touch about {specific_use_case}. We have logged your message and will route it to the right person.
 
-If there is anything time-sensitive we should know ({{deal_size_hint}}), just reply here.
+If there is anything time-sensitive we should know ({deal_size_hint}), just reply here.
 
 Best regards,
 Epicure Robotics`,

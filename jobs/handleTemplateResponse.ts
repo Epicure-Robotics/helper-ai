@@ -1,5 +1,5 @@
 import { convertToCoreMessages, type Message } from "ai";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { assertDefined } from "@/components/utils/assert";
 import { db } from "@/db/client";
@@ -31,11 +31,26 @@ export const handleTemplateResponse = async ({
 
   if (conversation.status === "spam") return { message: "Skipped - conversation is spam" };
 
-  // Check if this is the first message in the conversation
+  /**
+   * "Has anyone actually replied yet?" — an unsent AI draft is not a reply.
+   *
+   * This used to count every row, and generateBackgroundDraft runs on the same event and usually
+   * wins the race, so the count was always 2 and this job silently skipped every time. That made
+   * the per-category "Enable AI Auto-Response" toggle decorative: it was never reached.
+   *
+   * Inbound user messages carry status NULL, so the draft test has to be NULL-safe or it would
+   * exclude the very message being answered.
+   */
   const messageCount = await db
     .select({ count: sql<number>`count(*)` })
     .from(conversationMessages)
-    .where(eq(conversationMessages.conversationId, conversationId))
+    .where(
+      and(
+        eq(conversationMessages.conversationId, conversationId),
+        isNull(conversationMessages.deletedAt),
+        or(isNull(conversationMessages.status), ne(conversationMessages.status, "draft")),
+      ),
+    )
     .then((res) => Number(res[0]?.count ?? 0));
 
   if (messageCount > 1) {
@@ -145,7 +160,27 @@ export const handleTemplateResponse = async ({
       ? `\n\nSTANDARD ANSWER — the team's current, authoritative position for this category:\n"""\n${standardAnswer}\n"""\nEvery factual statement you make must come from the standard answer above. Rephrase it to fit this specific email; do not add timelines, prices, availability, capabilities, or commitments that are not stated in it, and do not fall back to the knowledge base for facts. If the standard answer does not address what they asked, say the team will follow up with those details rather than inventing them.`
       : "";
 
-    const prompt = `You are answering an email using a template. Provide content for ALL template variables. Do not include any URLs or links in your responses.\n\nTemplate variables to fill: ${templateVariables.join(", ")}${standardAnswerInstructions}${customInstructions}`;
+    /**
+     * Values are substituted mid-sentence, so they must read as fragments. Without this the model
+     * returns whole clauses and the mail comes out as "Thanks for your interest in interested in
+     * purchasing two machines for a cafe chain in Pune. with Epicure Robotics."
+     */
+    const prompt = `You are filling in the blanks of an email template. Each value is substituted directly into a sentence, so it must fit grammatically.
+
+Rules for every value:
+- Write a short fragment, not a sentence. No leading capital unless it is a proper noun, and no trailing full stop.
+- Do not repeat words that already surround the blank in the template.
+- Address the customer in the second person ("your cafe chain"), never the third.
+- No URLs or links.
+
+For example, in "Thanks for your interest in ___ with Epicure Robotics." a good value is "purchasing two machines for your cafe chain in Pune"; a bad one is "The customer is interested in purchasing two machines."
+
+Template being filled:
+"""
+${savedReplyTemplate}
+"""
+
+Variables to fill: ${templateVariables.join(", ")}${standardAnswerInstructions}${customInstructions}`;
 
     if (systemMessages[0] && typeof systemMessages[0].content === "string") {
       systemMessages[0].content += `\n\n${prompt}`;
