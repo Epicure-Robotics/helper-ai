@@ -1,6 +1,6 @@
 import { CreateSessionResult, sessionParamsSchema } from "@helperai/client";
-import { fetchAndUpdateUnsentNotifications } from "@/lib/data/messageNotifications";
 import { getMailboxCached } from "@/lib/data/mailbox";
+import { fetchAndUpdateUnsentNotifications } from "@/lib/data/messageNotifications";
 import { getPlatformCustomer } from "@/lib/data/platformCustomer";
 import { env } from "@/lib/env";
 import { createWidgetSession, getEmailHash } from "@/lib/widgetSession";

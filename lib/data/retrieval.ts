@@ -20,10 +20,16 @@ const MAX_SIMILAR_FAQS_IN_CHAT_PROMPT = 15;
 const CHAT_FAQ_SIMILARITY_THRESHOLD = 0.38;
 const LOW_SIGNAL_QUERY_MAX_FAQS = 8;
 
+const GREETING_PREFIX = /^(hi+|hello+|hey+|hola|thanks|thank you|ok+|okay|yo|sup|howdy)\b[\s,.!?-]*/i;
+
+/**
+ * True only when the message carries no question to search against. A leading greeting does not make it
+ * low-signal: "hey, how much is a Zoe drink?" still deserves real retrieval, only the bare "hey" does not.
+ */
 const isLowSignalQuery = (query: string) => {
   const trimmed = query.trim();
   if (trimmed.length < 4) return true;
-  return /^(hi+|hello|hey|hola|thanks|thank you|ok+|okay|yo|sup|howdy)\b/i.test(trimmed) && trimmed.length < 28;
+  return trimmed.replace(GREETING_PREFIX, "").trim().length < 10;
 };
 
 export const findSimilarConversations = async (
@@ -170,14 +176,21 @@ export type PromptRetrievalData = {
   }[];
 };
 
-/** Widget chat: skip embedding + vector search; Epicure block + capped FAQs are enough and save ~2–5s TTFT. */
+/** Widget chat fallback: no embedding + vector search, just the first N enabled FAQs. */
 const WIDGET_FAST_FAQ_LIMIT = 10;
+/** Widget chat semantic retrieval: tighter caps than the inbox so TTFT and prompt size stay low. */
+const WIDGET_MAX_WEBSITE_PAGES = 3;
+const WIDGET_MAX_FAQS = 8;
+const WIDGET_WEBSITE_PAGE_MAX_CHARS = 1800;
+const WIDGET_KNOWLEDGE_BANK_MAX_CHARS = 12_000;
+/** If semantic retrieval is slower than this, answer from the cheap fallback rather than stalling the stream. */
+const WIDGET_RETRIEVAL_TIMEOUT_MS = 2500;
 
-export const fetchFastWidgetRetrievalData = async (mailboxId: number): Promise<PromptRetrievalData> => {
+const fetchWidgetFallbackRetrievalData = async (mailboxId: number): Promise<PromptRetrievalData> => {
   const enabled = await findEnabledKnowledgeBankEntries(mailboxId);
   const capped = enabled.slice(0, WIDGET_FAST_FAQ_LIMIT);
   return {
-    knowledgeBank: knowledgeBankPrompt(capped),
+    knowledgeBank: knowledgeBankPrompt(capped, WIDGET_KNOWLEDGE_BANK_MAX_CHARS),
     knowledgeBankEntryIds: capped.map((e) => e.id),
     metadata: null,
     websitePagesPrompt: null,
@@ -185,18 +198,61 @@ export const fetchFastWidgetRetrievalData = async (mailboxId: number): Promise<P
   };
 };
 
+/**
+ * Widget chat retrieval. Runs the same semantic search as the inbox (so answers are grounded in the FAQs and
+ * crawled pages that actually match the question, and can be cited), but under a latency budget: if the
+ * embedding + vector search does not finish in time, fall back to the cheap capped-FAQ prompt.
+ */
+export const fetchFastWidgetRetrievalData = async (mailboxId: number, query = ""): Promise<PromptRetrievalData> => {
+  if (!query.trim() || isLowSignalQuery(query)) return fetchWidgetFallbackRetrievalData(mailboxId);
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const semantic = fetchPromptRetrievalData(query, null, mailboxId, {
+      maxWebsitePages: WIDGET_MAX_WEBSITE_PAGES,
+      maxFaqs: WIDGET_MAX_FAQS,
+      websitePageMaxChars: WIDGET_WEBSITE_PAGE_MAX_CHARS,
+      knowledgeBankMaxChars: WIDGET_KNOWLEDGE_BANK_MAX_CHARS,
+    });
+    // Swallow a late rejection so losing the race never produces an unhandled rejection.
+    semantic.catch(() => {});
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), WIDGET_RETRIEVAL_TIMEOUT_MS);
+    });
+    const result = await Promise.race([semantic, timeout]);
+    if (result) return result;
+  } catch (error) {
+    captureExceptionAndLog(error);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+
+  return fetchWidgetFallbackRetrievalData(mailboxId);
+};
+
 export const fetchPromptRetrievalData = async (
   query: string,
   metadata: object | null,
   mailboxId: number,
+  {
+    maxWebsitePages = MAX_SIMILAR_WEBSITE_PAGES,
+    maxFaqs = MAX_SIMILAR_FAQS_IN_CHAT_PROMPT,
+    websitePageMaxChars,
+    knowledgeBankMaxChars,
+  }: {
+    maxWebsitePages?: number;
+    maxFaqs?: number;
+    websitePageMaxChars?: number;
+    knowledgeBankMaxChars?: number;
+  } = {},
 ): Promise<PromptRetrievalData> => {
   const metadataText = metadata ? `User metadata:\n${JSON.stringify(metadata, null, 2)}` : null;
 
   if (isLowSignalQuery(query)) {
     const enabled = await findEnabledKnowledgeBankEntries(mailboxId);
-    const capped = enabled.slice(0, LOW_SIGNAL_QUERY_MAX_FAQS);
+    const capped = enabled.slice(0, Math.min(LOW_SIGNAL_QUERY_MAX_FAQS, maxFaqs));
     return {
-      knowledgeBank: knowledgeBankPrompt(capped),
+      knowledgeBank: knowledgeBankPrompt(capped, knowledgeBankMaxChars),
       knowledgeBankEntryIds: capped.map((e) => e.id),
       metadata: metadataText,
       websitePagesPrompt: null,
@@ -211,9 +267,9 @@ export const fetchPromptRetrievalData = async (
   } catch (error) {
     captureExceptionAndLog(error);
     const knowledgeBankFallback = await findEnabledKnowledgeBankEntries(mailboxId);
-    const capped = knowledgeBankFallback.slice(0, MAX_SIMILAR_FAQS_IN_CHAT_PROMPT);
+    const capped = knowledgeBankFallback.slice(0, maxFaqs);
     return {
-      knowledgeBank: knowledgeBankPrompt(capped),
+      knowledgeBank: knowledgeBankPrompt(capped, knowledgeBankMaxChars),
       knowledgeBankEntryIds: capped.map((e) => e.id),
       metadata: metadataText,
       websitePagesPrompt: null,
@@ -222,8 +278,8 @@ export const fetchPromptRetrievalData = async (
   }
 
   const [websitePages, similarFaqsRanked] = await Promise.all([
-    findSimilarWebsitePages(queryEmbedding, mailboxId, MAX_SIMILAR_WEBSITE_PAGES, CHAT_WEBSITE_SIMILARITY_THRESHOLD),
-    findTopSimilarFaqsForChat(queryEmbedding, mailboxId),
+    findSimilarWebsitePages(queryEmbedding, mailboxId, maxWebsitePages, CHAT_WEBSITE_SIMILARITY_THRESHOLD),
+    findTopSimilarFaqsForChat(queryEmbedding, mailboxId, maxFaqs),
   ]);
 
   let knowledgeEntries: { id: number; content: string }[];
@@ -231,7 +287,7 @@ export const fetchPromptRetrievalData = async (
     knowledgeEntries = similarFaqsRanked.map((f) => ({ id: f.id, content: f.content }));
   } else {
     const enabled = await findEnabledKnowledgeBankEntries(mailboxId);
-    knowledgeEntries = enabled.slice(0, MAX_SIMILAR_FAQS_IN_CHAT_PROMPT).map((e) => ({ id: e.id, content: e.content }));
+    knowledgeEntries = enabled.slice(0, maxFaqs).map((e) => ({ id: e.id, content: e.content }));
   }
 
   // A gap is a query where neither website pages nor any FAQ entry was semantically
@@ -244,10 +300,10 @@ export const fetchPromptRetrievalData = async (
   }
 
   return {
-    knowledgeBank: knowledgeBankPrompt(knowledgeEntries),
+    knowledgeBank: knowledgeBankPrompt(knowledgeEntries, knowledgeBankMaxChars),
     knowledgeBankEntryIds: knowledgeEntries.map((e) => e.id),
     metadata: metadataText,
-    websitePagesPrompt: websitePages.length > 0 ? websitePagesPrompt(websitePages) : null,
+    websitePagesPrompt: websitePages.length > 0 ? websitePagesPrompt(websitePages, websitePageMaxChars) : null,
     websitePages,
   };
 };

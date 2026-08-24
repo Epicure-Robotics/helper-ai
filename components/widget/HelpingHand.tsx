@@ -86,7 +86,6 @@ export default function HelpingHand({
         body: JSON.stringify({ sessionId: guideSessionId, steps: updatedSteps }),
       });
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error("Failed to update guide steps:", error);
     }
   };

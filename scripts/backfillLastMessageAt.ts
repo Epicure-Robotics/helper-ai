@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { sql } from "drizzle-orm";
 import { db } from "@/db/client";
 

@@ -79,7 +79,7 @@ export const getMessagesOnly = async (conversationId: number) => {
 };
 
 /** Latest inbound customer message for draft/replies, including threads merged into this conversation. */
-export const findLatestUserMessageForConversation = async (conversationId: number) => {
+export const findLatestUserMessageForConversation = (conversationId: number) => {
   const mergedChildIds = db
     .select({ id: conversations.id })
     .from(conversations)

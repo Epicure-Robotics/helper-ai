@@ -21,13 +21,7 @@ interface AssignSelectProps {
   trigger?: React.ReactNode;
 }
 
-export const AssignSelect = ({
-  selectedUserId,
-  onChange,
-  aiOption,
-  aiOptionSelected,
-  trigger,
-}: AssignSelectProps) => {
+export const AssignSelect = ({ selectedUserId, onChange, aiOption, aiOptionSelected, trigger }: AssignSelectProps) => {
   const { user } = useSession() ?? {};
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");

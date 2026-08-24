@@ -76,8 +76,8 @@ export function GenerateIssuesDialog({ isOpen, onClose, onApprove, isCreating }:
         <DialogHeader className="text-left">
           <DialogTitle>Review generated categories</DialogTitle>
           <DialogDescription>
-            Review and edit the AI-generated categories before creating them. You can modify titles, descriptions, or remove
-            categories you don't want.
+            Review and edit the AI-generated categories before creating them. You can modify titles, descriptions, or
+            remove categories you don't want.
           </DialogDescription>
         </DialogHeader>
 

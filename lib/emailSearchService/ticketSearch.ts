@@ -112,7 +112,7 @@ const OPERATOR_ALIASES: Record<string, keyof TicketSearchOperators> = {
   id: "id",
   slug: "slug",
 };
-const BROADENING_RULES: Array<{ needle: RegExp; replacements: string[] }> = [
+const BROADENING_RULES: { needle: RegExp; replacements: string[] }[] = [
   { needle: /\brough eta\b/gi, replacements: ["delivery estimate", "estimated arrival"] },
   { needle: /\beta\b/gi, replacements: ["delivery estimate", "estimated arrival", "arrival"] },
   { needle: /\bnot arrived\b/gi, replacements: ["not delivered", "delayed", "in transit"] },
@@ -123,12 +123,12 @@ const BROADENING_RULES: Array<{ needle: RegExp; replacements: string[] }> = [
 
 const unique = <T>(values: T[]) => Array.from(new Set(values));
 
-const andAll = (...conditions: Array<SQL | undefined>) => {
+const andAll = (...conditions: (SQL | undefined)[]) => {
   const filtered = conditions.filter((condition): condition is SQL => Boolean(condition));
   return filtered.length ? and(...filtered) : undefined;
 };
 
-const orAll = (...conditions: Array<SQL | undefined>) => {
+const orAll = (...conditions: (SQL | undefined)[]) => {
   const filtered = conditions.filter((condition): condition is SQL => Boolean(condition));
   return filtered.length ? or(...filtered) : undefined;
 };
@@ -440,8 +440,12 @@ export async function findTicketMatches({
 
       for (const row of rows) {
         const exact =
-          normalizeWhitespace(row.cleanedUpText ?? "").toLowerCase().includes(phrase.toLowerCase()) ||
-          normalizeWhitespace(stripHtml(row.body ?? "")).toLowerCase().includes(phrase.toLowerCase());
+          normalizeWhitespace(row.cleanedUpText ?? "")
+            .toLowerCase()
+            .includes(phrase.toLowerCase()) ||
+          normalizeWhitespace(stripHtml(row.body ?? ""))
+            .toLowerCase()
+            .includes(phrase.toLowerCase());
         pushMatch(
           buildConversationMatch(row, {
             source: "message",
@@ -485,7 +489,9 @@ export async function findTicketMatches({
             role: row.role ?? "staff",
             createdAt: row.createdAt,
             matchedText: phrase,
-            exact: normalizeWhitespace(row.body ?? "").toLowerCase().includes(phrase.toLowerCase()),
+            exact: normalizeWhitespace(row.body ?? "")
+              .toLowerCase()
+              .includes(phrase.toLowerCase()),
             snippet: snippetFromText(row.body, phrase),
           }),
         );

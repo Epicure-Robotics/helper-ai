@@ -38,15 +38,14 @@ const handleJob = async (jobRun: typeof jobRuns.$inferSelect, handler: Promise<a
   try {
     Sentry.setTag("job", jobRun.job);
     Sentry.setExtra("data", jobRun.data);
-    // eslint-disable-next-line no-console
+
     console.log(`Running job ${jobRun.id} (${jobRun.job} ${JSON.stringify(jobRun.data)})`);
     await db.update(jobRuns).set({ status: "running" }).where(eq(jobRuns.id, jobRun.id));
     const result = await handler;
     await db.update(jobRuns).set({ status: "success", result }).where(eq(jobRuns.id, jobRun.id));
-    // eslint-disable-next-line no-console
+
     console.log(`Job ${jobRun.id} (${jobRun.job}) completed with:`, result);
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.log(`Job ${jobRun.id} (${jobRun.job}) failed`);
     captureExceptionAndLog(error);
     await failJob(jobRun, error);
@@ -111,7 +110,6 @@ export const POST = async (request: NextRequest) => {
       waitUntil(handleJob(jobRun, handler()));
     }
 
-    // eslint-disable-next-line no-console
     console.log(`Created job run ${jobRun.id}`);
     return new Response(`OK: Job run ${jobRun.id}`);
   } catch (error) {

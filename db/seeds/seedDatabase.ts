@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import fs, { existsSync } from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
@@ -171,7 +170,7 @@ export const seedDatabase = async () => {
       // @ts-ignore - localSeeds.ts is optional
       await import("./localSeeds").then((module: any) => module.default());
     }
-    if (process.env.EPICURE_SEED === "1") {
+    if (env.EPICURE_SEED === "1") {
       const { seedEpicureLeadContent } = await import("./epicureLeadContent");
       await seedEpicureLeadContent();
     }

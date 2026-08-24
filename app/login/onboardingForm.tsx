@@ -64,13 +64,7 @@ export function OnboardingForm({ className, ...props }: React.ComponentPropsWith
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <div className="flex flex-col items-center gap-3">
-        <Image
-          src={logoSrc}
-          alt="Epicure Assist"
-          width="110"
-          height="32"
-          className="w-28"
-        />
+        <Image src={logoSrc} alt="Epicure Assist" width="110" height="32" className="w-28" />
         <p className="text-sm text-muted-foreground">Welcome! Let's set up your Epicure Assist account</p>
       </div>
       <form onSubmit={handleFormSubmit}>

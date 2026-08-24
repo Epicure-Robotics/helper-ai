@@ -40,6 +40,11 @@ type TipTapEditorProps = {
   className?: string;
   actionButtons?: ReactNode;
   followButton?: ReactNode;
+  /**
+   * Dictation wiring from the caller. Accepted so `messageActions` keeps compiling, but this editor
+   * renders no mic control yet — the staff reply box has no voice input. The widget composer has its
+   * own implementation in `components/widget/ChatInput.tsx`; port that here to finish the feature.
+   */
   isRecordingSupported: boolean;
   isRecording: boolean;
   startRecording: () => void;
@@ -97,10 +102,6 @@ const TipTapEditor = ({
   className,
   actionButtons,
   followButton,
-  isRecordingSupported,
-  isRecording,
-  startRecording,
-  stopRecording,
   ref,
 }: TipTapEditorPropsWithRef) => {
   const { data: helpArticles = [] } = api.mailbox.websites.pages.useQuery();

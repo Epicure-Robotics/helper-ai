@@ -50,7 +50,7 @@ export function useRealtimeNotifications() {
 
       if (isVisible) {
         // Check if user has in-app toast notifications enabled (default is OFF)
-        const notificationPrefs = (user.preferences as any)?.notifications || {};
+        const notificationPrefs = user.preferences?.notifications || {};
         const inAppToastEnabled = notificationPrefs.inAppToastEnabled === true;
 
         if (inAppToastEnabled) {

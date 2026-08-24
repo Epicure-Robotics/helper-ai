@@ -66,7 +66,6 @@ export const listenToRealtimeEvent = async <Data = any>(
       }
       const data = SuperJSON.parse(payload.data);
       if (env.NODE_ENV === "development") {
-        // eslint-disable-next-line no-console
         console.debug("Received realtime event:", channel, event, { ...payload, data });
       }
       channelObject.eventListeners[event]?.forEach((listener) =>

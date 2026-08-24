@@ -72,9 +72,7 @@ export const savedRepliesRouter = {
           ? userMap.get(savedReply.createdByUserId) || "Unknown"
           : "Admin",
         mailboxName: ctx.mailbox.name,
-        variables: savedReply.templateType === "html_template"
-          ? extractTemplateVariables(savedReply.content)
-          : [],
+        variables: savedReply.templateType === "html_template" ? extractTemplateVariables(savedReply.content) : [],
       }));
     }),
 
@@ -92,9 +90,7 @@ export const savedRepliesRouter = {
 
     return {
       ...savedReply,
-      variables: savedReply.templateType === "html_template"
-        ? extractTemplateVariables(savedReply.content)
-        : [],
+      variables: savedReply.templateType === "html_template" ? extractTemplateVariables(savedReply.content) : [],
     };
   }),
 
@@ -121,9 +117,7 @@ export const savedRepliesRouter = {
 
       return {
         ...savedReply,
-        variables: savedReply.templateType === "html_template"
-          ? extractTemplateVariables(savedReply.content)
-          : [],
+        variables: savedReply.templateType === "html_template" ? extractTemplateVariables(savedReply.content) : [],
       };
     }),
 
@@ -152,7 +146,7 @@ export const savedRepliesRouter = {
       const { slug, ...updateData } = input;
 
       // Determine the template type for sanitization
-      const templateType = (updateData.templateType ?? existingSavedReply.templateType) as "rich_text" | "html_template";
+      const templateType = updateData.templateType ?? existingSavedReply.templateType;
 
       // Sanitize content if being updated
       const sanitizedUpdateData = {
@@ -170,9 +164,8 @@ export const savedRepliesRouter = {
 
       return {
         ...updatedSavedReply,
-        variables: updatedSavedReply.templateType === "html_template"
-          ? extractTemplateVariables(updatedSavedReply.content)
-          : [],
+        variables:
+          updatedSavedReply.templateType === "html_template" ? extractTemplateVariables(updatedSavedReply.content) : [],
       };
     }),
 

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 // Adapted from https://www.answeroverflow.com/m/1128519076952682517
 
 import path from "path";

@@ -4,10 +4,11 @@ import { createConversationBodySchema } from "@helperai/client";
 import { corsOptions, corsResponse, withWidgetAuth } from "@/app/api/widget/utils";
 import { db } from "@/db/client";
 import { mailboxes } from "@/db/schema";
-import { getInstantGreetingReply } from "@/lib/ai/instantGreeting";
 import { createAssistantMessage, createUserMessage } from "@/lib/ai/chat";
+import { getInstantGreetingReply } from "@/lib/ai/instantGreeting";
 import { CHAT_CONVERSATION_SUBJECT, createConversation, updateOriginalConversation } from "@/lib/data/conversation";
 import { getPlatformCustomer } from "@/lib/data/platformCustomer";
+import { checkWidgetChatRateLimit, widgetSessionKey } from "@/lib/rateLimit";
 import { captureExceptionAndLog } from "@/lib/shared/sentry";
 
 const VIP_INITIAL_STATUS = "open";
@@ -16,6 +17,19 @@ const DEFAULT_INITIAL_STATUS = "closed";
 export const OPTIONS = () => corsOptions("POST");
 
 export const POST = withWidgetAuth(async ({ request }, { session, mailbox }) => {
+  const rateLimit = await checkWidgetChatRateLimit({
+    request,
+    sessionKey: widgetSessionKey(session),
+    perSession: { limit: 10, windowSeconds: 300 },
+    perIp: { limit: 30, windowSeconds: 300 },
+  });
+  if (!rateLimit.allowed) {
+    return corsResponse(
+      { error: "Too many requests. Please wait a moment and try again." },
+      { status: 429, headers: { "Retry-After": rateLimit.retryAfterSeconds.toString() } },
+    );
+  }
+
   const parsedParams = createConversationBodySchema.safeParse(await request.json());
   if (parsedParams.error) return corsResponse({ error: parsedParams.error.message }, { status: 400 });
 

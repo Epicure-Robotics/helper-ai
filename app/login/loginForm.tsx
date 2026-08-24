@@ -122,13 +122,7 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <div className="flex flex-col items-center gap-3">
-        <Image
-          src={logoSrc}
-          alt="Epicure Assist"
-          width="110"
-          height="32"
-          className="w-28"
-        />
+        <Image src={logoSrc} alt="Epicure Assist" width="110" height="32" className="w-28" />
         <p className="text-sm text-muted-foreground">
           {step === "email"
             ? "Please sign in to continue"
@@ -161,6 +155,7 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
                     type="submit"
                     size="sm"
                     iconOnly
+                    aria-label="Continue"
                     className="absolute right-1 top-1 mr-px mt-px"
                     disabled={!email || isLoading}
                   >
@@ -202,6 +197,7 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
                     type="submit"
                     size="sm"
                     iconOnly
+                    aria-label="Continue"
                     className="absolute right-1 top-1 mr-px mt-px"
                     disabled={!displayName.trim() || isLoading}
                   >

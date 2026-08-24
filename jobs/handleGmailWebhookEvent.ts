@@ -24,23 +24,35 @@ import { MINI_MODEL } from "@/lib/ai/core";
 import { updateConversation } from "@/lib/data/conversation";
 import { createConversationMessage, createReply } from "@/lib/data/conversationMessage";
 import { createAndUploadFile, finishFileUpload, generateKey, uploadFile } from "@/lib/data/files";
+import { upsertPlatformCustomer } from "@/lib/data/platformCustomer";
 import { matchesTransactionalEmailAddress } from "@/lib/data/transactionalEmailAddressRegex";
 import { getBasicProfileByEmail } from "@/lib/data/user";
-import { upsertPlatformCustomer } from "@/lib/data/platformCustomer";
 import { extractAddresses, parseEmailAddress } from "@/lib/emails";
 import { env } from "@/lib/env";
-import { isFormLeadMessage } from "@/lib/leads/formLeadDetection";
-import { parseFormLeadHtml } from "@/lib/leads/parseFormBody";
-import { buildLeadSubject, parseWebsiteLeadSubject } from "@/lib/leads/leadCategory";
-import { getPrimaryMailboxFromRelation } from "@/lib/tenant";
 import { getGmailService, getMessageById, getMessagesFromHistoryId } from "@/lib/gmail/client";
+import { isFormLeadMessage } from "@/lib/leads/formLeadDetection";
+import { buildLeadSubject, parseWebsiteLeadSubject } from "@/lib/leads/leadCategory";
+import { parseFormLeadHtml } from "@/lib/leads/parseFormBody";
 import { extractEmailPartsFromDocument } from "@/lib/shared/html";
 import { captureExceptionAndLog, captureExceptionAndThrowIfDevelopment } from "@/lib/shared/sentry";
+import { getPrimaryMailboxFromRelation } from "@/lib/tenant";
 import { isWeekendPeriod } from "@/lib/utils/weekendPeriod";
 import { generateFilePreview } from "./generateFilePreview";
 import { triggerEvent } from "./trigger";
 import { assertDefinedOrRaiseNonRetriableError, NonRetriableError } from "./utils";
 
+/**
+ * Gmail category labels treated as junk on arrival.
+ *
+ * CATEGORY_UPDATES stays in this list even though Gmail also applies it to genuine first-contact
+ * business mail. Dropping it floods the queue: the transactional-sender check deliberately does
+ * not match notifications@, hello@news…, team@mail…, so every vendor newsletter and deploy alert
+ * would become an open ticket.
+ *
+ * A lead caught by this filter is not lost — triage still runs on ignored mail, and
+ * categorizeConversationToIssueGroup reopens anything it resolves to a lead category. So mail
+ * escapes on what it actually says, rather than on how Gmail happened to label it.
+ */
 const IGNORED_GMAIL_CATEGORIES = ["CATEGORY_PROMOTIONS", "CATEGORY_UPDATES", "CATEGORY_FORUMS", "CATEGORY_SOCIAL"];
 
 const isUniqueViolation = (error: unknown) => {
@@ -251,8 +263,7 @@ export const handleGmailWebhookEvent = async ({ body, headers }: any) => {
         mailboxAddress: gmailSupportEmail.email,
       });
 
-      const emailSentFromMailbox =
-        parsedEmailFrom.address.toLowerCase() === gmailSupportEmail.email.toLowerCase();
+      const emailSentFromMailbox = parsedEmailFrom.address.toLowerCase() === gmailSupportEmail.email.toLowerCase();
       if (emailSentFromMailbox && !isFormLead) {
         results.push({
           message: `Skipped - message ${gmailMessageId} sent from mailbox`,
@@ -263,9 +274,7 @@ export const handleGmailWebhookEvent = async ({ body, headers }: any) => {
       }
 
       const { processedHtml, fileSlugs } = await extractAndUploadInlineImages(parsedEmailBody);
-      const cleanedUpText = htmlToText(
-        isFirstMessageInThread ? processedHtml : extractQuotations(processedHtml),
-      );
+      const cleanedUpText = htmlToText(isFirstMessageInThread ? processedHtml : extractQuotations(processedHtml));
 
       const staffUser = await getBasicProfileByEmail(parsedEmailFrom.address);
 
@@ -276,9 +285,10 @@ export const handleGmailWebhookEvent = async ({ body, headers }: any) => {
         ignoreReason = "Message is from staff";
       } else if (isFormLead && !formParsed) {
         ignoreReason ??= "Could not parse website form lead body";
-      } else if (labelIds.some((id) => IGNORED_GMAIL_CATEGORIES.includes(id))) {
+      } else if (!isFormLead && labelIds.some((id) => IGNORED_GMAIL_CATEGORIES.includes(id))) {
+        // A parsed website form lead is never junk, whatever Gmail labelled it.
         ignoreReason = `Message is in an ignored category (${labelIds.filter((id) => IGNORED_GMAIL_CATEGORIES.includes(id)).join(", ")})`;
-      } else if (matchesTransactionalEmailAddress(parsedEmailFrom.address)) {
+      } else if (!isFormLead && matchesTransactionalEmailAddress(parsedEmailFrom.address)) {
         ignoreReason = `Email address is transactional (${parsedEmailFrom.address})`;
       } else {
         const isAutomatedResponseOrThankYou = await isThankYouOrAutoResponse(mailbox, cleanedUpText);
@@ -299,8 +309,10 @@ export const handleGmailWebhookEvent = async ({ body, headers }: any) => {
                     parseWebsiteLeadSubject(parsedEmail.subject)?.rawLabel ?? formParsed.category,
                   )
                 : (parsedEmail.subject ?? null),
-            status: ignoreReason ? "closed" : "open",
-            closedAt: ignoreReason ? new Date() : null,
+            // "ignored" (not "closed") so the filter's output stays reviewable in its own tab and
+            // Closed keeps meaning "a human dealt with this".
+            status: ignoreReason ? "ignored" : "open",
+            closedAt: null,
             conversationProvider: "gmail",
             source: formParsed && isFormLead ? "form" : "email",
             isPrompt: false,
@@ -364,7 +376,7 @@ export const handleGmailWebhookEvent = async ({ body, headers }: any) => {
         const status = conversation.status ?? "open";
 
         if (
-          ["closed", "waiting_on_customer", "check_back_later"].includes(status) &&
+          ["closed", "waiting_on_customer", "check_back_later", "ignored"].includes(status) &&
           (!conversation.assignedToAI || mailbox.preferences?.autoRespondEmailToChat === "draft") &&
           !ignoreReason
         ) {
@@ -375,7 +387,7 @@ export const handleGmailWebhookEvent = async ({ body, headers }: any) => {
           await tx.insert(conversationEvents).values({
             conversationId: conversation.id,
             type: "email_auto_ignored",
-            changes: { status: "closed" },
+            changes: { status: "ignored" },
             reason: ignoreReason,
           });
         }

@@ -34,7 +34,7 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
   // Preload critical data when user is authenticated
   useEffect(() => {
     if (!user || isLoading) return;
-    
+
     // Preload only the most critical data immediately
     // Less critical data will be loaded on-demand with caching
     void Promise.all([
@@ -43,9 +43,7 @@ export const SessionProvider = ({ children }: { children: React.ReactNode }) => 
       // Critical: Issue groups - needed immediately for filters
       utils.mailbox.issueGroups.listAll.ensureData(),
       // Less critical: Open counts can load slightly later (500ms delay)
-      new Promise<void>((resolve) => setTimeout(() => resolve(), 500)).then(() =>
-        utils.mailbox.openCount.ensureData()
-      ),
+      new Promise<void>((resolve) => setTimeout(() => resolve(), 500)).then(() => utils.mailbox.openCount.ensureData()),
     ]);
   }, [user, isLoading, utils]);
 

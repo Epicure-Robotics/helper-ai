@@ -39,10 +39,8 @@ const handler = async (req: any) => {
       });
     },
     onError({ error, path }) {
-      // eslint-disable-next-line no-console
       console.error(`>>> tRPC Error on '${path}'`, error);
       if (error.cause) {
-        // eslint-disable-next-line no-console
         console.error(error.cause.stack);
       }
     },

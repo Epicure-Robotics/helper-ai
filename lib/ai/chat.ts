@@ -190,15 +190,21 @@ export const buildPromptMessages = async (
   promptInfo: Omit<PromptInfo, "availableTools">;
   customerInfo: CustomerInfo | null;
 }> => {
-  if (promptProfile === "widget" && query.trim()) {
-    const cacheKey = `widget-system-prompt:v1:${mailbox.id}:${hashQuery(query)}`;
-    const cached = await cacheFor<Awaited<ReturnType<typeof buildPromptMessages>>>(cacheKey).get();
+  // The built prompt embeds the requester's email and any live customer info, so it can only be shared
+  // between requests from the same identity. Skip the cache entirely when live customer data is injected.
+  const promptCacheKey =
+    promptProfile === "widget" && query.trim() && !(email && customerInfoUrl)
+      ? `widget-system-prompt:v2:${mailbox.id}:${email ? hashQuery(email) : "anon"}:${hashQuery(query)}`
+      : null;
+
+  if (promptCacheKey) {
+    const cached = await cacheFor<Awaited<ReturnType<typeof buildPromptMessages>>>(promptCacheKey).get();
     if (cached) return cached;
   }
 
   const retrievalPromise =
     promptProfile === "widget"
-      ? fetchFastWidgetRetrievalData(mailbox.id)
+      ? fetchFastWidgetRetrievalData(mailbox.id, query)
       : fetchPromptRetrievalData(query, null, mailbox.id);
 
   const [{ knowledgeBank, knowledgeBankEntryIds, websitePagesPrompt, websitePages }, customerInfo] = await Promise.all([
@@ -246,10 +252,9 @@ export const buildPromptMessages = async (
     customerInfo,
   };
 
-  if (promptProfile === "widget" && query.trim()) {
-    const cacheKey = `widget-system-prompt:v1:${mailbox.id}:${hashQuery(query)}`;
+  if (promptCacheKey) {
     try {
-      await cacheFor(cacheKey).set(result, 60 * 60);
+      await cacheFor(promptCacheKey).set(result, 60 * 60);
     } catch (error) {
       captureExceptionAndLog(error);
     }
@@ -445,8 +450,19 @@ export const generateAIResponse = async ({
       undefined,
       promptProfile ?? "full",
     ),
+    // The widget gets only the escalation tools: everything else it needs is already retrieved into the
+    // system prompt, but without `request_human_support` a customer asking for a person is never actually
+    // handed off (the ticket stays assigned to AI and closed, so nobody on the team sees it).
     isWidgetProfile
-      ? Promise.resolve({} as Record<string, Tool>)
+      ? buildTools({
+          conversationId,
+          email,
+          includeHumanSupport: true,
+          guideEnabled: false,
+          includeMailboxTools: false,
+          includePastConversationSearch: false,
+          includeSavedReplyTool: false,
+        })
       : buildTools({
           conversationId,
           email,
@@ -554,11 +570,13 @@ export const generateAIResponse = async ({
   return streamText({
     model,
     messages: finalMessages,
-    maxSteps: maxSteps ?? (isWidgetProfile ? 1 : 4),
-    ...(isWidgetProfile ? {} : { tools }),
+    // Widget needs a second step so it can answer in words after an escalation/email tool call
+    // instead of finishing on a bare tool call with no text.
+    maxSteps: maxSteps ?? (isWidgetProfile ? 2 : 4),
+    tools,
     temperature: 0.1,
     seed: evaluation ? 100 : undefined,
-    maxTokens: maxTokens ?? (isWidgetProfile ? 480 : undefined),
+    maxTokens: maxTokens ?? (isWidgetProfile ? 600 : undefined),
     experimental_transform: hideToolResults(),
     experimental_providerMetadata: {
       openai: {
@@ -580,8 +598,7 @@ export const generateAIResponse = async ({
         usingReasoning: addReasoning,
       },
     },
-    async onFinish({ text, finishReason, experimental_providerMetadata, steps, usage }) {
-      console.log("experimental_providerMetadata", usage);
+    async onFinish({ text, finishReason, experimental_providerMetadata, steps }) {
       // const metadata = experimental_providerMetadata?.openai as { cachedPromptTokens?: number };
       // const openAIUsage = {
       //   ...usage,
@@ -720,7 +737,21 @@ export const respondWithAI = async ({
 }) => {
   if (conversation.status === "spam") return createTextResponse("", Date.now().toString());
 
-  const greetingReply = getInstantGreetingReply(message.content);
+  const [previousMessages, platformCustomer] = await Promise.all([
+    loadPreviousMessages(conversation.id, messageId, { skipHistoryWhenEmpty: true }),
+    userEmail ? getPlatformCustomer(userEmail) : Promise.resolve(null),
+  ]);
+  const messages = appendClientMessage({
+    messages: previousMessages,
+    message,
+  });
+
+  const isPromptConversation = conversation.isPrompt;
+  const isFirstMessage = messages.length === 1;
+
+  // Only shortcut an opening "hi". Mid-conversation the same word is usually an answer to something we
+  // just asked, and replying "How can I assist you today?" throws the thread away.
+  const greetingReply = isFirstMessage ? getInstantGreetingReply(message.content) : null;
   if (greetingReply) {
     const responseId = `ai_${Date.now()}`;
     waitUntil(
@@ -734,18 +765,6 @@ export const respondWithAI = async ({
     );
     return createTextResponse(greetingReply, responseId);
   }
-
-  const [previousMessages, platformCustomer] = await Promise.all([
-    loadPreviousMessages(conversation.id, messageId, { skipHistoryWhenEmpty: true }),
-    userEmail ? getPlatformCustomer(userEmail) : Promise.resolve(null),
-  ]);
-  const messages = appendClientMessage({
-    messages: previousMessages,
-    message,
-  });
-
-  const isPromptConversation = conversation.isPrompt;
-  const isFirstMessage = messages.length === 1;
 
   const handleAssistantMessage = async (
     text: string,
@@ -800,7 +819,10 @@ export const respondWithAI = async ({
 
   const cacheKey = `chat:v2:mailbox-${mailbox.id}:initial-response:${hashQuery(message.content)}`;
   const widgetCacheKey = `chat:widget:v1:${mailbox.id}:${hashQuery(message.content ?? "")}`;
-  if (isFirstMessage && promptProfile === "widget") {
+  // These caches are keyed by question only, so one customer's answer is replayed to everyone who asks
+  // the same thing. Answers for an identified customer can be personalized, so only share anonymous ones.
+  const canShareAnswerAcrossCustomers = !userEmail;
+  if (isFirstMessage && canShareAnswerAcrossCustomers && promptProfile === "widget") {
     const cached: string | null = await cacheFor<string>(widgetCacheKey).get();
     if (cached != null) {
       const responseId = `ai_${Date.now()}`;
@@ -808,7 +830,7 @@ export const respondWithAI = async ({
       return createTextResponse(cached, responseId);
     }
   }
-  if (isFirstMessage && isPromptConversation) {
+  if (isFirstMessage && canShareAnswerAcrossCustomers && isPromptConversation) {
     const cached: string | null = await cacheFor<string>(cacheKey).get();
     if (cached != null) {
       const responseId = `ai_${Date.now()}`;
@@ -836,8 +858,8 @@ export const respondWithAI = async ({
         customerInfoUrl,
         customPrompt,
         promptProfile,
-        maxSteps: promptProfile === "widget" ? 1 : 4,
-        maxTokens: promptProfile === "widget" ? 400 : undefined,
+        maxSteps: promptProfile === "widget" ? 2 : 4,
+        maxTokens: promptProfile === "widget" ? 600 : undefined,
         dataStream,
         async onFinish({ text, finishReason, steps, traceId, experimental_providerMetadata, sources, promptInfo }) {
           const hasSensitiveToolCall = steps.some((step: any) =>
@@ -848,12 +870,16 @@ export const respondWithAI = async ({
             step.toolCalls.some((toolCall: any) => toolCall.toolName === "request_human_support"),
           );
 
-          if (finishReason !== "stop" && finishReason !== "tool-calls") return;
+          // "length" means the model hit maxTokens: the customer already saw the text stream in, so it has
+          // to be persisted too, otherwise the reply vanishes on reload and feedback buttons have no message.
+          if (finishReason !== "stop" && finishReason !== "tool-calls" && finishReason !== "length") return;
 
           const reasoning = experimental_providerMetadata?.reasoning;
-          const responseText = hasRequestHumanSupportCall
-            ? "_Escalated to a human! You will be contacted soon here and by email._"
-            : text;
+          const responseText =
+            hasRequestHumanSupportCall && !text.trim()
+              ? "_Escalated to a human! You will be contacted soon here and by email._"
+              : text;
+          if (!responseText.trim()) return;
           const assistantMessage = await handleAssistantMessage(
             responseText,
             hasRequestHumanSupportCall,

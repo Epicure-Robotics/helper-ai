@@ -1,4 +1,4 @@
-import { type TRPCRouterRecord, TRPCError } from "@trpc/server";
+import { TRPCError, type TRPCRouterRecord } from "@trpc/server";
 import { eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";

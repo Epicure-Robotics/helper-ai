@@ -19,7 +19,7 @@ import { env } from "@/lib/env";
  */
 export const createTRPCContext = (opts: { headers: Headers; user: FullUserProfile | null }) => {
   const source = opts.headers.get("x-trpc-source") ?? "unknown";
-  // eslint-disable-next-line no-console
+
   console.log(">>> tRPC Request from", source, "by user ID", opts.user?.id ?? "Unknown");
 
   return { user: opts.user };
@@ -56,7 +56,7 @@ export const createTRPCRouter = t.router;
 /**
  * Adds an artificial delay in development to help catch unwanted waterfalls
  * (by simulating network latency as if it were a production environment).
- * 
+ *
  * Can be disabled by setting SIMULATE_NETWORK_LATENCY=false in environment
  * for better performance when not testing for waterfalls.
  */
@@ -73,7 +73,7 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
   const result = await next();
 
   const end = Date.now();
-  // eslint-disable-next-line no-console
+
   console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
 
   return result;

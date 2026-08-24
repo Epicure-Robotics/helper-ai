@@ -38,14 +38,14 @@ export function HtmlTemplatePreview({
         iframeDoc.open();
         iframeDoc.write(editedContent);
         iframeDoc.close();
-        
+
         // Make the body content editable
         if (iframeDoc.body) {
           iframeDoc.body.contentEditable = "true";
           iframeDoc.body.style.outline = "none";
           iframeDoc.body.style.padding = "16px";
           iframeDoc.body.style.minHeight = "200px";
-          
+
           // Listen for input changes in the iframe
           iframeDoc.body.addEventListener("input", () => {
             isUpdatingFromIframe.current = true;
@@ -68,13 +68,7 @@ export function HtmlTemplatePreview({
           <div className="font-medium text-sm">{templateName}</div>
           <span className="text-xs text-muted-foreground">HTML Template - Click to edit</span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onRemove}
-          className="h-8 w-8 p-0"
-          title="Remove template"
-        >
+        <Button variant="ghost" size="sm" onClick={onRemove} className="h-8 w-8 p-0" title="Remove template">
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -94,7 +88,7 @@ export function HtmlTemplatePreview({
                 const height = iframeDoc.documentElement.scrollHeight;
                 iframe.style.height = `${Math.max(height, 200)}px`;
               }
-            } catch (err) {
+            } catch {
               // Cross-origin restrictions, keep default height
             }
           }}

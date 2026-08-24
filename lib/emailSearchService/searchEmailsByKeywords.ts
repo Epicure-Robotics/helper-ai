@@ -32,4 +32,9 @@ export async function searchEmailsByKeywords(
 }
 
 export { findTicketMatches } from "./ticketSearch";
-export type { FindTicketMatchesResult, ParsedTicketSearchQuery, TicketMatchField, TicketSearchMatch } from "./ticketSearch";
+export type {
+  FindTicketMatchesResult,
+  ParsedTicketSearchQuery,
+  TicketMatchField,
+  TicketSearchMatch,
+} from "./ticketSearch";

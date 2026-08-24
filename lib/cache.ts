@@ -22,7 +22,7 @@ async function readFromRedis<T>(key: string): Promise<T | null | undefined> {
   }
 }
 
-async function writeToRedis<T>(key: string, value: T, expirySeconds: number | null): Promise<boolean> {
+async function writeToRedis(key: string, value: unknown, expirySeconds: number | null): Promise<boolean> {
   const redis = await getRedis();
   if (!redis) return false;
 
@@ -40,7 +40,7 @@ async function writeToRedis<T>(key: string, value: T, expirySeconds: number | nu
   }
 }
 
-async function readFromPostgres<T>(key: string): Promise<{ value: T; expirySeconds: number | null } | null> {
+async function readFromPostgres(key: string): Promise<{ value: unknown; expirySeconds: number | null } | null> {
   const result = await db.query.cache.findFirst({ where: eq(cacheTable.key, key) });
   if (!result || (result.expiresAt && result.expiresAt <= new Date())) {
     return null;
@@ -50,10 +50,10 @@ async function readFromPostgres<T>(key: string): Promise<{ value: T; expirySecon
     ? Math.max(1, Math.floor((result.expiresAt.getTime() - Date.now()) / 1000))
     : null;
 
-  return { value: result.value as T, expirySeconds };
+  return { value: result.value, expirySeconds };
 }
 
-async function writeToPostgres<T>(key: string, value: T, expirySeconds: number | null) {
+async function writeToPostgres(key: string, value: unknown, expirySeconds: number | null) {
   const expiresAt = expirySeconds ? new Date(Date.now() + expirySeconds * 1000) : null;
   await db.insert(cacheTable).values({ key, value, expiresAt }).onConflictDoUpdate({
     target: cacheTable.key,
@@ -71,10 +71,10 @@ export const cacheFor = <T>(key: string) => ({
       return fromRedis;
     }
 
-    const fromPostgres = await readFromPostgres<T>(key);
+    const fromPostgres = await readFromPostgres(key);
     if (fromPostgres) {
       void writeToRedis(key, fromPostgres.value, fromPostgres.expirySeconds);
-      return fromPostgres.value;
+      return fromPostgres.value as T;
     }
 
     return null;

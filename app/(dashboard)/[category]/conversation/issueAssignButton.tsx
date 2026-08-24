@@ -119,10 +119,7 @@ export const IssueAssignButton = ({ initialIssueGroupId }: { initialIssueGroupId
           {issueGroups.groups.map((group) => (
             <SelectItem key={group.id} value={group.id.toString()}>
               <div className="flex items-center gap-2 overflow-hidden">
-                <div
-                  className="size-2 rounded-full shrink-0"
-                  style={{ backgroundColor: group.color || "gray" }}
-                />
+                <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: group.color || "gray" }} />
                 <span className="text-sm truncate block max-w-[200px]" title={group.title}>
                   {group.title}
                 </span>

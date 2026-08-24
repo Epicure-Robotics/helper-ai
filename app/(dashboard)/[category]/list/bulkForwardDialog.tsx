@@ -65,7 +65,7 @@ export const BulkForwardDialog = ({
     // Confirm bulk action
     const count = conversationSlugs.length;
     const confirmed = window.confirm(
-      `Are you sure you want to forward ${count} conversation${count === 1 ? "" : "s"} to ${emailList.data.join(", ")}?`
+      `Are you sure you want to forward ${count} conversation${count === 1 ? "" : "s"} to ${emailList.data.join(", ")}?`,
     );
 
     if (!confirmed) return;
@@ -95,9 +95,12 @@ export const BulkForwardDialog = ({
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Forward {conversationSlugs.length} Conversation{conversationSlugs.length === 1 ? "" : "s"}</DialogTitle>
+          <DialogTitle>
+            Forward {conversationSlugs.length} Conversation{conversationSlugs.length === 1 ? "" : "s"}
+          </DialogTitle>
           <DialogDescription>
-            Send {conversationSlugs.length === 1 ? "this conversation" : "these conversations"} to external email addresses.
+            Send {conversationSlugs.length === 1 ? "this conversation" : "these conversations"} to external email
+            addresses.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -141,8 +144,11 @@ export const BulkForwardDialog = ({
 
           <div className="rounded-lg border bg-muted/50 p-3">
             <p className="text-xs text-muted-foreground">
-              {conversationSlugs.length} conversation{conversationSlugs.length === 1 ? "" : "s"} will be forwarded via Gmail.
-              {includeFullThread ? " Full threads will be included." : " Only the first message from each conversation will be forwarded."}
+              {conversationSlugs.length} conversation{conversationSlugs.length === 1 ? "" : "s"} will be forwarded via
+              Gmail.
+              {includeFullThread
+                ? " Full threads will be included."
+                : " Only the first message from each conversation will be forwarded."}
             </p>
           </div>
         </div>

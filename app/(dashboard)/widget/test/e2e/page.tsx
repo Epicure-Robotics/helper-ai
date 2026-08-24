@@ -39,7 +39,6 @@ export default function WidgetTestPage() {
             try {
               throw new Error("Test error");
             } catch (e) {
-              // eslint-disable-next-line no-console
               console.error("Caught test error:", e);
               // In a real app, you'd send this to an error reporting service
             }

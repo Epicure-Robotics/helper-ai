@@ -7,9 +7,9 @@ import { assertDefined } from "@/components/utils/assert";
 import { db } from "@/db/client";
 import { conversationMessages, conversations, gmailSupportEmails } from "@/db/schema";
 import { getBasicProfileByEmail } from "@/lib/data/user";
-import { getPrimaryMailboxFromRelation } from "@/lib/tenant";
 import { parseEmailAddress } from "@/lib/emails";
 import { getGmailService, getLast10GmailThreads, getMessageById, getThread, GmailClient } from "@/lib/gmail/client";
+import { getPrimaryMailboxFromRelation } from "@/lib/tenant";
 import {
   assertSuccessResponseOrThrow,
   createMessageAndProcessAttachments,
@@ -115,9 +115,7 @@ export const processGmailThreadWithClient = async (
     const { parsedEmailFrom, parsedEmailBody } = getParsedEmailInfo(parsedEmail);
     const { processedHtml, fileSlugs } = await extractAndUploadInlineImages(parsedEmailBody);
     const isFirstMessageInImportedThread = i === 0;
-    const cleanedUpText = htmlToText(
-      isFirstMessageInImportedThread ? processedHtml : extractQuotations(processedHtml),
-    );
+    const cleanedUpText = htmlToText(isFirstMessageInImportedThread ? processedHtml : extractQuotations(processedHtml));
     // Process messages serially since we rely on the database ID for message ordering
     const staffUser = await getBasicProfileByEmail(parsedEmailFrom.address);
 

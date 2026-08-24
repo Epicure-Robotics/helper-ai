@@ -179,19 +179,24 @@ const getPreviousEmailConversationAssignee = async (
 export const autoAssignConversation = async ({ conversationId }: { conversationId: number }) => {
   console.log(`[Auto-Assign] 🎯 Starting auto-assign for conversation ${conversationId}`);
 
-  const conversation = assertDefinedOrRaiseNonRetriableError(
-    await db.query.conversations.findFirst({
-      where: eq(conversations.id, conversationId),
-      with: {
-        messages: {
-          columns: {
-            role: true,
-            cleanedUpText: true,
-          },
+  const conversation = await db.query.conversations.findFirst({
+    where: eq(conversations.id, conversationId),
+    with: {
+      messages: {
+        columns: {
+          role: true,
+          cleanedUpText: true,
         },
       },
-    }),
-  );
+    },
+  });
+
+  // A conversation can be deleted between this job being queued and it running. That is an ordinary
+  // race, not a failure, so skip like `generateBackgroundDraft` does instead of recording an error.
+  if (!conversation) {
+    console.log(`[Auto-Assign] Conversation ${conversationId} no longer exists, skipping`);
+    return { message: "Skipped: conversation no longer exists" };
+  }
 
   console.log(
     `[Auto-Assign] Conversation details - ID: ${conversation.id}, IssueGroupId: ${conversation.issueGroupId ?? "none"}, Subject: ${conversation.subject}`,

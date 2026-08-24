@@ -83,16 +83,11 @@ export function TemplateVariableDialog({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="flex items-center gap-2">
-                        <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
-                          {`{${variable}}`}
-                        </code>
+                        <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{`{${variable}}`}</code>
                         <span className="capitalize">{variable.replace(/_/g, " ")}</span>
                       </FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder={`Enter ${variable.replace(/_/g, " ")}...`}
-                          {...field}
-                        />
+                        <Input placeholder={`Enter ${variable.replace(/_/g, " ")}...`} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

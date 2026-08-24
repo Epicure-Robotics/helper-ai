@@ -161,6 +161,8 @@ export const env = createEnv({
      * Use a separate Supabase project per tier in production—one `POSTGRES_URL` cannot serve both dev and prod safely.
      */
     EPICURE_DEPLOYMENT: z.enum(["local", "preview", "production"]).default("local"),
+    /** Set to "1" to include the Epicure lead-content seed when running `pnpm db:seed`. */
+    EPICURE_SEED: emptyUnsetOptString(),
     /**
      * Expected primary support Gmail for website form notifications in this environment.
      * Should match the inbox you connect via OAuth (e.g. prod: connect@epicurerobotics.com, dev: your test Gmail).

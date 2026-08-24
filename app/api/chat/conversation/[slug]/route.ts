@@ -37,8 +37,7 @@ export const GET = withWidgetAuth<{ slug: string }>(async ({ context: { params }
   if (markRead) {
     const last = conversation.lastReadAt;
     const now = Date.now();
-    const shouldWriteLastRead =
-      !last || now - last.getTime() >= MARK_READ_GET_THROTTLE_MS;
+    const shouldWriteLastRead = !last || now - last.getTime() >= MARK_READ_GET_THROTTLE_MS;
     if (shouldWriteLastRead) {
       await updateConversation(conversation.id, { set: { lastReadAt: new Date() } });
     }

@@ -21,7 +21,11 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useSession } from "@/components/useSession";
-import { checkPushNotificationSupport, subscribeToPushNotifications } from "@/lib/notifications/sw-register";
+import {
+  checkPushNotificationSupport,
+  subscribeToPushNotifications,
+  toPushSubscriptionPayload,
+} from "@/lib/notifications/sw-register";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
 
@@ -74,6 +78,18 @@ const NotificationsSetting = () => {
 
   const { data: subscriptionsData } = api.user.listPushSubscriptions.useQuery();
 
+  const { mutate: sendTestPush, isPending: isSendingTest } = api.user.sendTestPush.useMutation({
+    onSuccess: ({ delivered, attempted, expired }) => {
+      utils.user.listPushSubscriptions.invalidate();
+      toast.success(`Test push delivered to ${delivered} of ${attempted} device(s)`, {
+        description: expired ? `${expired} expired subscription(s) were removed.` : undefined,
+      });
+    },
+    onError: (error) => {
+      toast.error("Test push failed", { description: error.message });
+    },
+  });
+
   useEffect(() => {
     const support = checkPushNotificationSupport();
     setPermissionStatus(support.permission);
@@ -84,18 +100,17 @@ const NotificationsSetting = () => {
     updatePreferences({ [key]: value });
   };
 
-  const handleRequestPermission = async () => {
+  /**
+   * Registers *this* device against the signed-in employee. Safe to call repeatedly: the browser
+   * hands back its existing subscription when there is one, and the server upserts on
+   * (userId, endpoint), so re-running only refreshes the keys and `lastUsedAt`.
+   */
+  const registerThisDevice = async () => {
     try {
       const result = await subscribeToPushNotifications();
 
       if (result.success && result.subscription) {
-        const subscriptionJSON = result.subscription.toJSON();
-        subscribeToPush({
-          endpoint: result.subscription.endpoint,
-          p256dh: subscriptionJSON.keys?.p256dh || "",
-          auth: subscriptionJSON.keys?.auth || "",
-          userAgent: navigator.userAgent,
-        });
+        subscribeToPush(toPushSubscriptionPayload(result.subscription));
         setPermissionStatus("granted");
         // Also enable the preference if not already
         if (!webPushEnabled) {
@@ -113,22 +128,22 @@ const NotificationsSetting = () => {
   };
 
   const handleTestNotification = () => {
-    if (Notification.permission === "granted") {
-      new Notification("Test Notification", {
-        body: "This is a test notification from Epicure Assist",
-        icon: "/logo_icon.png",
-      });
-      toast.success("Test notification sent");
-    } else {
+    if (Notification.permission !== "granted") {
       toast.error("Notification permission not granted");
+      return;
     }
+    sendTestPush();
   };
 
   const handleWebPushToggle = (checked: boolean) => {
     setWebPushEnabled(checked);
     handlePreferenceChange("webPushEnabled", checked);
-    if (checked && permissionStatus !== "granted") {
-      handleRequestPermission();
+    // Register unconditionally when enabling. Gating this on `permission !== "granted"` meant that on
+    // a device which had already granted permission — and permission outlives logouts, DB resets and
+    // the whole period VAPID keys were missing — no `push_subscriptions` row was ever written, so the
+    // toggle read as on while the device received nothing.
+    if (checked) {
+      registerThisDevice();
     }
   };
 
@@ -179,7 +194,7 @@ const NotificationsSetting = () => {
                 <div className="rounded-full bg-primary/10 p-2.5">
                   <Globe className="h-5 w-5 text-primary" />
                 </div>
-                <Switch checked={webPushEnabled} onCheckedChange={handleWebPushToggle} />
+                <Switch aria-label="Browser Push" checked={webPushEnabled} onCheckedChange={handleWebPushToggle} />
               </div>
               <div>
                 <h3 className="font-semibold text-lg">Browser Push</h3>
@@ -194,8 +209,14 @@ const NotificationsSetting = () => {
                   Permission: {permissionStatus || "unknown"}
                 </Badge>
                 {permissionStatus === "granted" && (
-                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={handleTestNotification}>
-                    Test
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={handleTestNotification}
+                    disabled={isSendingTest}
+                  >
+                    {isSendingTest ? "Sending…" : "Test"}
                   </Button>
                 )}
               </div>
@@ -215,6 +236,7 @@ const NotificationsSetting = () => {
                   <Bell className="h-5 w-5 text-primary" />
                 </div>
                 <Switch
+                  aria-label="In-App Toasts"
                   checked={inAppToastEnabled}
                   onCheckedChange={(checked) => {
                     setInAppToastEnabled(checked);

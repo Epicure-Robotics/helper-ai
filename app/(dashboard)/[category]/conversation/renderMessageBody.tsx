@@ -60,7 +60,7 @@ const adjustAttributes = (html: string) => {
     let processedHtml = doc.body.innerHTML;
     // Replace 2+ consecutive br tags with just one
     processedHtml = processedHtml.replace(/(<br\s*\/?>\s*){2,}/gi, "<br>");
-    
+
     return processedHtml;
   } catch (error) {
     captureExceptionAndLog(error);

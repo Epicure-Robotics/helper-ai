@@ -8,26 +8,24 @@ import openai from "@/lib/ai/openai";
 import { cacheFor } from "@/lib/cache";
 
 const _GPT_4O_MODEL = "gpt-4o";
-const _GPT_4O_MINI_MODEL = "gpt-4o-mini";
+const GPT_4O_MINI_MODEL = "gpt-4o-mini";
 const _GPT_4_1_MODEL = "gpt-4.1";
 const O4_MINI_MODEL = "o4-mini-2025-04-16";
-// eslint-disable-next-line
-const GPT_5_CHAT_MODEL = "gpt-5-chat-latest";
-const GPT_5_MINI_MODEL = "gpt-5-mini-2025-08-07";
-// qwen/qwen3-coder-next
-// minimax/minimax-m2.5
-const MINIMAX_M2_5 = "minimax/minimax-m2.5";
-const QWEN3_CODER_NEXT = "qwen/qwen3-coder-next";
+const _GPT_5_CHAT_MODEL = "gpt-5-chat-latest";
+const _GPT_5_MINI_MODEL = "gpt-5-mini-2025-08-07";
 
+/**
+ * Every model here is passed straight to `openai(...)`, so the union must stay OpenAI-only.
+ * OpenRouter ids (minimax/minimax-m2.5, qwen/qwen3-coder-next) previously sat in this union and
+ * made every `openai(model)` call a type error; add them back only alongside an OpenRouter client.
+ */
 export type AvailableModel =
   | typeof O4_MINI_MODEL
-  | typeof _GPT_4O_MINI_MODEL
-  | typeof GPT_5_MINI_MODEL
+  | typeof GPT_4O_MINI_MODEL
+  | typeof _GPT_5_MINI_MODEL
   | typeof _GPT_4O_MODEL
-  | typeof MINIMAX_M2_5
   | typeof _GPT_4_1_MODEL
-  | typeof QWEN3_CODER_NEXT
-  | typeof GPT_5_CHAT_MODEL;
+  | typeof _GPT_5_CHAT_MODEL;
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_MODEL_FALLBACK = "openai/text-embedding-3-small";
@@ -36,11 +34,11 @@ const EMBEDDING_MODEL_FALLBACK = "openai/text-embedding-3-small";
  * Intentionally a **mini-tier** model: answers are meant to be short and grounded on retrieved context (FAQ/knowledge bank,
  * similar website pages, injected org prompts). Heavier “thinking” belongs in optional reasoning paths, not the default reply.
  */
-export const CHAT_MODEL = _GPT_4O_MINI_MODEL;
+export const CHAT_MODEL = GPT_4O_MINI_MODEL;
 /** Categorization and other lightweight tool-calling / triage flows. */
-export const MINI_MODEL = _GPT_4O_MINI_MODEL;
+export const MINI_MODEL = GPT_4O_MINI_MODEL;
 /** Inbox email drafts. */
-export const DRAFT_MODEL = _GPT_4O_MINI_MODEL;
+export const DRAFT_MODEL = GPT_4O_MINI_MODEL;
 
 /** Vector embeddings for FAQ / website page similarity search (`fetchPromptRetrievalData`, past threads, etc.). Not used for final chat wording. */
 export const generateEmbedding = async (
@@ -86,7 +84,7 @@ export const generateEmbedding = async (
     }
   }
 
-  throw lastError ?? new Error("Failed to generate embedding");
+  throw lastError instanceof Error ? lastError : new Error("Failed to generate embedding", { cause: lastError });
 };
 
 export const generateCompletion = ({

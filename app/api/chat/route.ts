@@ -10,6 +10,7 @@ import { conversations, mailboxes } from "@/db/schema";
 import { createUserMessage, respondWithAI } from "@/lib/ai/chat";
 import { CHAT_CONVERSATION_SUBJECT, generateConversationSubject } from "@/lib/data/conversation";
 import { storeTools } from "@/lib/data/storedTool";
+import { checkWidgetChatRateLimit, widgetSessionKey } from "@/lib/rateLimit";
 import { publicConversationChannelId } from "@/lib/realtime/channels";
 import { publishToRealtime } from "@/lib/realtime/publish";
 import { validateAttachments } from "@/lib/shared/attachmentValidation";
@@ -33,6 +34,14 @@ interface ChatRequestBody {
 export const OPTIONS = () => corsOptions("POST");
 
 export const POST = withWidgetAuth(async ({ request }, { session, mailbox }) => {
+  const rateLimit = await checkWidgetChatRateLimit({ request, sessionKey: widgetSessionKey(session) });
+  if (!rateLimit.allowed) {
+    return corsResponse(
+      { error: "Too many messages. Please wait a moment and try again." },
+      { status: 429, headers: { "Retry-After": rateLimit.retryAfterSeconds.toString() } },
+    );
+  }
+
   const {
     message,
     conversationSlug,

@@ -27,7 +27,6 @@ export function useReadPageTool(
         });
 
         if (!response.ok) {
-          // eslint-disable-next-line no-console
           console.error("Failed to fetch read page tool");
           return;
         }
@@ -37,7 +36,6 @@ export function useReadPageTool(
           setReadPageToolCall(data.readPageTool);
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
         console.error("Failed to fetch read page tool:", error);
       }
     };

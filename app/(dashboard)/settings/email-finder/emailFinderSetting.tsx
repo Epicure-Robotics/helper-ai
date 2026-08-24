@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { Search, MessageSquare, Calendar, User, ExternalLink } from "lucide-react";
+import { Calendar, ExternalLink, MessageSquare, Search, User } from "lucide-react";
 import Link from "next/link";
-import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
 import LoadingSpinner from "@/components/loadingSpinner";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { api } from "@/trpc/react";
 import SectionWrapper from "../sectionWrapper";
-import { Card } from "@/components/ui/card";
 
 interface ConversationResult {
   id: number;
@@ -119,7 +119,12 @@ const EmailFinderSetting = () => {
                 Found {results.length} {results.length === 1 ? "conversation" : "conversations"}
               </div>
               {results.map((conversation) => (
-                <Link key={conversation.id} href={`/conversations?id=${conversation.slug}`} target="_blank" rel="noopener noreferrer">
+                <Link
+                  key={conversation.id}
+                  href={`/conversations?id=${conversation.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <Card className="p-4 hover:bg-accent/50 transition-colors cursor-pointer">
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-4">
@@ -128,7 +133,9 @@ const EmailFinderSetting = () => {
                           <h3 className="font-medium truncate">{conversation.subject || "No Subject"}</h3>
                           <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
                         </div>
-                        <Badge className={getStatusColor(conversation.status)}>{formatStatus(conversation.status)}</Badge>
+                        <Badge className={getStatusColor(conversation.status)}>
+                          {formatStatus(conversation.status)}
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
@@ -165,21 +172,11 @@ const EmailFinderSetting = () => {
       >
         <div className="space-y-2">
           <div className="text-sm space-y-1">
-            <div className="font-mono bg-accent/50 px-3 py-2 rounded">
-              &quot;customer can't log in&quot;
-            </div>
-            <div className="font-mono bg-accent/50 px-3 py-2 rounded">
-              &quot;issues with payment processing&quot;
-            </div>
-            <div className="font-mono bg-accent/50 px-3 py-2 rounded">
-              &quot;how to cancel subscription&quot;
-            </div>
-            <div className="font-mono bg-accent/50 px-3 py-2 rounded">
-              &quot;user wants refund&quot;
-            </div>
-            <div className="font-mono bg-accent/50 px-3 py-2 rounded">
-              &quot;reset password not working&quot;
-            </div>
+            <div className="font-mono bg-accent/50 px-3 py-2 rounded">&quot;customer can't log in&quot;</div>
+            <div className="font-mono bg-accent/50 px-3 py-2 rounded">&quot;issues with payment processing&quot;</div>
+            <div className="font-mono bg-accent/50 px-3 py-2 rounded">&quot;how to cancel subscription&quot;</div>
+            <div className="font-mono bg-accent/50 px-3 py-2 rounded">&quot;user wants refund&quot;</div>
+            <div className="font-mono bg-accent/50 px-3 py-2 rounded">&quot;reset password not working&quot;</div>
           </div>
           <p className="text-xs text-muted-foreground pt-2">
             The AI uses embeddings to find conversations with similar meaning, even if they use different words.

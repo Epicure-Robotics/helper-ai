@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { conversationMessages, conversations, jobRuns } from "@/db/schema";
@@ -22,13 +21,23 @@ console.log("  email_from:           ", conversation.emailFrom);
 
 const messages = await db.query.conversationMessages.findMany({
   where: eq(conversationMessages.conversationId, conversation.id),
-  columns: { id: true, role: true, status: true, gmailThreadId: true, gmailMessageId: true, createdAt: true, deletedAt: true },
+  columns: {
+    id: true,
+    role: true,
+    status: true,
+    gmailThreadId: true,
+    gmailMessageId: true,
+    createdAt: true,
+    deletedAt: true,
+  },
   orderBy: (m, { desc }) => [desc(m.createdAt)],
 });
 
 console.log("\n=== MESSAGES (newest first) ===");
 for (const m of messages) {
-  console.log(`  [${m.id}] role=${m.role} status=${m.status} gmailThreadId=${m.gmailThreadId ?? "null"} deletedAt=${m.deletedAt ?? "null"} createdAt=${m.createdAt}`);
+  console.log(
+    `  [${m.id}] role=${m.role} status=${m.status} gmailThreadId=${m.gmailThreadId ?? "null"} deletedAt=${m.deletedAt ?? "null"} createdAt=${m.createdAt}`,
+  );
 }
 
 const archiveJobs = await db.query.jobRuns.findMany({
@@ -47,12 +56,21 @@ if (relevantArchiveJobs.length === 0) {
   console.log("  ⚠️  No archive job runs found — job was never queued for this conversation");
 } else {
   for (const j of relevantArchiveJobs) {
-    console.log(`  [${j.id}] status=${j.status} createdAt=${j.createdAt} result=${JSON.stringify(j.result)} error=${j.error ?? "null"}`);
+    console.log(
+      `  [${j.id}] status=${j.status} createdAt=${j.createdAt} result=${JSON.stringify(j.result)} error=${j.error ?? "null"}`,
+    );
   }
 }
 
 const postEmailJobs = await db
-  .select({ id: jobRuns.id, status: jobRuns.status, createdAt: jobRuns.createdAt, result: jobRuns.result, error: jobRuns.error, data: jobRuns.data })
+  .select({
+    id: jobRuns.id,
+    status: jobRuns.status,
+    createdAt: jobRuns.createdAt,
+    result: jobRuns.result,
+    error: jobRuns.error,
+    data: jobRuns.data,
+  })
   .from(jobRuns)
   .where(eq(jobRuns.job, "postEmailToGmail"))
   .orderBy(jobRuns.createdAt);
@@ -68,7 +86,9 @@ if (relevantPostEmailJobs.length === 0) {
   console.log("  ⚠️  No postEmailToGmail job runs found for this conversation's messages");
 } else {
   for (const j of relevantPostEmailJobs) {
-    console.log(`  [${j.id}] status=${j.status} createdAt=${j.createdAt} result=${JSON.stringify(j.result)} error=${j.error ?? "null"} data=${JSON.stringify(j.data)}`);
+    console.log(
+      `  [${j.id}] status=${j.status} createdAt=${j.createdAt} result=${JSON.stringify(j.result)} error=${j.error ?? "null"} data=${JSON.stringify(j.data)}`,
+    );
   }
 }
 

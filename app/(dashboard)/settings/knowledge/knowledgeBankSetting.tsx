@@ -71,8 +71,8 @@ const KnowledgeBankSetting = () => {
       description={
         <>
           <div className="mb-2">
-            Record information that you frequently share with leads and customers. Epicure Assist uses this to provide consistent,
-            accurate, and relevant responses to inquiries.
+            Record information that you frequently share with leads and customers. Epicure Assist uses this to provide
+            consistent, accurate, and relevant responses to inquiries.
           </div>
           The app will suggest improvements to your knowledge bank to ensure it stays up to date.
         </>

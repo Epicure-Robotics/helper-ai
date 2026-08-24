@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
+import { conversationEvents } from "@/db/schema/conversationEvents";
 import { conversationMessages } from "@/db/schema/conversationMessages";
 import { conversations } from "@/db/schema/conversations";
 import { issueGroups } from "@/db/schema/issueGroups";
@@ -124,15 +125,36 @@ const applyTriage = async (
   resolvedGroupId: number | null,
   assignedToAI: boolean,
   messageId: number,
+  currentStatus?: string | null,
 ) => {
+  /**
+   * Rescue: the arrival filters run on sender and Gmail label, before anyone has read the message,
+   * so they bin real enquiries — Gmail marks first-contact business mail CATEGORY_UPDATES, and it
+   * would mark our own website form notifications the same way. Triage runs on ignored mail too,
+   * so once it resolves a lead category we undo that call and put the lead back in the queue.
+   * Mail escapes on what it says, not on how Gmail labelled it.
+   */
+  const rescueFromIgnored = currentStatus === "ignored" && triage.leadCategoryKey != null;
+
   await db
     .update(conversations)
     .set({
       inboundTriage: { ...triage, matchedIssueGroupId: resolvedGroupId },
       issueGroupId: resolvedGroupId,
       assignedToAI,
+      ...(rescueFromIgnored ? { status: "open" as const, closedAt: null } : {}),
     })
     .where(eq(conversations.id, conversationId));
+
+  if (rescueFromIgnored) {
+    await db.insert(conversationEvents).values({
+      conversationId,
+      type: "email_auto_ignored",
+      changes: { status: "open" },
+      reason: `Reopened: triage identified this as a lead (${triage.leadCategoryKey}, priority ${triage.importance})`,
+    });
+    console.log(`[Triage] Rescued conversation ${conversationId} from ignored — lead: ${triage.leadCategoryKey}`);
+  }
 
   const conversationBeforeAssign = await db.query.conversations.findFirst({
     where: eq(conversations.id, conversationId),
@@ -162,6 +184,7 @@ export const categorizeConversationToIssueGroup = async ({ messageId }: { messag
       columns: {
         id: true,
         subject: true,
+        status: true,
         issueGroupId: true,
         inboundTriage: true,
       },
@@ -249,7 +272,14 @@ export const categorizeConversationToIssueGroup = async ({ messageId }: { messag
         issueGroupId: formGroupId,
       });
 
-      await applyTriage(conversation.id, triage, formGroupId, assignedToAiFromTriage(triage), messageId);
+      await applyTriage(
+        conversation.id,
+        triage,
+        formGroupId,
+        assignedToAiFromTriage(triage),
+        messageId,
+        conversation.status,
+      );
 
       return {
         message: `Triage from website form category: ${spec.label} (priority ${spec.priority})`,
@@ -319,7 +349,7 @@ export const categorizeConversationToIssueGroup = async ({ messageId }: { messag
 
   const assignedToAI = assignedToAiFromTriage(triage);
 
-  await applyTriage(conversation.id, triage, resolvedGroupId, assignedToAI, messageId);
+  await applyTriage(conversation.id, triage, resolvedGroupId, assignedToAI, messageId, conversation.status);
 
   const matchedTitle = resolvedGroupId ? allIssueGroups.find((g) => g.id === resolvedGroupId)?.title : undefined;
 

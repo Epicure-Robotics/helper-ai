@@ -1,7 +1,7 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface HtmlTemplateEditorProps {
   value: string;
@@ -46,7 +46,7 @@ export function HtmlTemplateEditor({
       <div
         className={cn(
           "relative rounded-md border border-input bg-background transition-colors",
-          isFocused && "ring-2 ring-ring ring-offset-2"
+          isFocused && "ring-2 ring-ring ring-offset-2",
         )}
       >
         <textarea
@@ -58,7 +58,7 @@ export function HtmlTemplateEditor({
           className={cn(
             "w-full resize-y rounded-md bg-transparent p-3 font-mono text-sm",
             "focus:outline-none",
-            "placeholder:text-muted-foreground"
+            "placeholder:text-muted-foreground",
           )}
           style={{ minHeight }}
           spellCheck={false}
@@ -67,15 +67,10 @@ export function HtmlTemplateEditor({
 
       {variables.length > 0 && (
         <div className="rounded-md border border-border bg-muted/50 p-3 text-sm">
-          <div className="mb-1 font-medium text-muted-foreground">
-            Template Variables Detected:
-          </div>
+          <div className="mb-1 font-medium text-muted-foreground">Template Variables Detected:</div>
           <div className="flex flex-wrap gap-2">
             {variables.map((variable) => (
-              <code
-                key={variable}
-                className="rounded bg-background px-2 py-1 font-mono text-xs"
-              >
+              <code key={variable} className="rounded bg-background px-2 py-1 font-mono text-xs">
                 {`{${variable}}`}
               </code>
             ))}

@@ -1,8 +1,8 @@
+import { ilike } from "drizzle-orm";
 import { db } from "./db/client";
 import { conversations } from "./db/schema";
-import { eq, ilike } from "drizzle-orm";
-import { getMailbox } from "./lib/data/mailbox";
 import { searchConversations } from "./lib/data/conversation/search";
+import { getMailbox } from "./lib/data/mailbox";
 
 async function testSearch() {
   console.log("Testing search functionality...\n");

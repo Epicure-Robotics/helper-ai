@@ -43,7 +43,7 @@ export function SavedReplyForm({ savedReply, onSuccess, onCancel, onDelete }: Sa
     defaultValues: {
       name: savedReply?.name || "",
       content: savedReply?.content || "",
-      templateType: (savedReply?.templateType || "rich_text") as "rich_text" | "html_template",
+      templateType: savedReply?.templateType || "rich_text",
     },
   });
 
