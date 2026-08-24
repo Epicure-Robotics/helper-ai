@@ -1,0 +1,1 @@
+ALTER TABLE "issue_groups" ADD COLUMN "standard_answer" text;

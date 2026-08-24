@@ -37,7 +37,7 @@ beforeEach(() => {
 
 describe("serializeResponseAiDraft", () => {
   it("returns null if draft is missing a responseToId", async () => {
-    await userFactory.createRootUser();
+    const { mailbox } = await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
     const { message: draft } = await conversationMessagesFactory.create(conversation.id, {
       role: "ai_assistant" as const,
@@ -48,7 +48,7 @@ describe("serializeResponseAiDraft", () => {
   });
 
   it("correctly serializes a valid draft", async () => {
-    await userFactory.createRootUser();
+    const { mailbox } = await userFactory.createRootUser();
     const { conversation } = await conversationFactory.create();
     const params = {
       role: "ai_assistant" as const,

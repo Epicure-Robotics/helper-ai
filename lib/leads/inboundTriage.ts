@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { leadCategoryKeys, type LeadCategoryKey, type LeadCategorySource } from "./leadCategory";
 
 /** Fixed taxonomy the model should prefer; it may instead propose a new label with confidence. */
 export const starterInboundCategoryKeys = [
@@ -27,11 +28,22 @@ export type InboundCategoryResolution =
 
 export type InboundTriage = {
   category: InboundCategoryResolution;
+  /** Priority. Set from the website form category when present, otherwise inferred by the model. */
   importance: "low" | "med" | "high";
   geography: string | null;
   summaryLine: string;
   reasoning?: string;
   matchedIssueGroupId?: number | null;
+  /** Set when the message resolved to one of the six lead categories, from either channel. */
+  leadCategoryKey?: LeadCategoryKey | null;
+  /** Category text as received, kept verbatim so new website dropdown options are visible. */
+  leadCategoryLabel?: string | null;
+  /** Which channel produced the category — the form states it, the model guesses it. */
+  leadCategorySource?: LeadCategorySource | null;
+  /** 1 for the form; the model's own confidence when inferred from a plain email. */
+  leadCategoryConfidence?: number | null;
+  /** Bypasses the bucket+importance routing table; used by the lead category map. */
+  routingRoleOverride?: LeadRoutingRole | null;
 };
 
 /** Core-only routing inboxes (set on team members → Settings → Team). */
@@ -95,6 +107,7 @@ export function effectiveInboundBucket(triage: InboundTriage): StarterInboundCat
 
 /**
  * Route to team members who have this inbox category on their profile (or any admin).
+ * - routingRoleOverride (website form category) wins outright
  * - Business + high → founder_sales (human, no auto-reply)
  * - Business + low/med → sales_digest (templated / AI-friendly)
  * - Vendor pitch → procurement_cto
@@ -103,6 +116,8 @@ export function effectiveInboundBucket(triage: InboundTriage): StarterInboundCat
  * - Generic / spam / unknown → general
  */
 export function routingTargetFromTriage(triage: InboundTriage): LeadRoutingRole {
+  if (triage.routingRoleOverride) return triage.routingRoleOverride;
+
   const bucket = effectiveInboundBucket(triage);
   const { importance } = triage;
 
@@ -137,6 +152,13 @@ const triageShared = z.object({
   summaryLine: z.string().max(400),
   reasoning: z.string(),
   matchedIssueGroupId: z.number().nullable(),
+  /**
+   * Which of the six lead categories this message is, when it is a lead at all. Null for vendor
+   * pitches, hiring, press, and spam. Drives priority and routing exactly as the website form
+   * dropdown does, so an emailed franchise enquiry is handled like a form-submitted one.
+   */
+  leadCategoryKey: z.enum(leadCategoryKeys).nullable(),
+  leadCategoryConfidence: z.number().min(0).max(1).describe("0-1 confidence in leadCategoryKey; 0 when null"),
 });
 
 export const inboundTriageAISchema = z.discriminatedUnion("categorySource", [
@@ -168,6 +190,9 @@ export function inboundTriageFromAi(ai: InboundTriageAIResult): InboundTriage {
       summaryLine: ai.summaryLine,
       reasoning: ai.reasoning,
       matchedIssueGroupId: ai.matchedIssueGroupId,
+      leadCategoryKey: ai.leadCategoryKey,
+      leadCategoryConfidence: ai.leadCategoryConfidence,
+      leadCategorySource: ai.leadCategoryKey ? "ai_inferred" : null,
     };
   }
 
@@ -183,5 +208,8 @@ export function inboundTriageFromAi(ai: InboundTriageAIResult): InboundTriage {
     summaryLine: ai.summaryLine,
     reasoning: ai.reasoning,
     matchedIssueGroupId: ai.matchedIssueGroupId,
+    leadCategoryKey: ai.leadCategoryKey,
+    leadCategoryConfidence: ai.leadCategoryConfidence,
+    leadCategorySource: ai.leadCategoryKey ? "ai_inferred" : null,
   };
 }

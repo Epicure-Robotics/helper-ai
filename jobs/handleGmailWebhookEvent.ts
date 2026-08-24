@@ -31,6 +31,7 @@ import { extractAddresses, parseEmailAddress } from "@/lib/emails";
 import { env } from "@/lib/env";
 import { isFormLeadMessage } from "@/lib/leads/formLeadDetection";
 import { parseFormLeadHtml } from "@/lib/leads/parseFormBody";
+import { buildLeadSubject, parseWebsiteLeadSubject } from "@/lib/leads/leadCategory";
 import { getPrimaryMailboxFromRelation } from "@/lib/tenant";
 import { getGmailService, getMessageById, getMessagesFromHistoryId } from "@/lib/gmail/client";
 import { extractEmailPartsFromDocument } from "@/lib/shared/html";
@@ -292,7 +293,12 @@ export const handleGmailWebhookEvent = async ({ body, headers }: any) => {
             emailFrom: formParsed?.email ?? parsedEmailFrom.address,
             emailFromName: formParsed?.name ?? parsedEmailFrom.name,
             subject:
-              formParsed && isFormLead ? `🚀 New Lead: ${formParsed.name}` : (parsedEmail.subject ?? null),
+              formParsed && isFormLead
+                ? buildLeadSubject(
+                    formParsed.name,
+                    parseWebsiteLeadSubject(parsedEmail.subject)?.rawLabel ?? formParsed.category,
+                  )
+                : (parsedEmail.subject ?? null),
             status: ignoreReason ? "closed" : "open",
             closedAt: ignoreReason ? new Date() : null,
             conversationProvider: "gmail",

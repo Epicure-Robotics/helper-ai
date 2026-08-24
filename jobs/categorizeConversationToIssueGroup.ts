@@ -12,7 +12,17 @@ import {
   inboundTriageFromAi,
   STARTER_INBOUND_CATEGORY_LABELS,
   starterInboundCategoryKeys,
+  type InboundTriage,
 } from "@/lib/leads/inboundTriage";
+import {
+  LEAD_CATEGORY_MIN_CONFIDENCE,
+  LEAD_CATEGORY_SPECS,
+  leadCategoryAiMenu,
+  leadCategorySpec,
+  leadCategoryTriage,
+  parseWebsiteLeadSubject,
+} from "@/lib/leads/leadCategory";
+import { captureExceptionAndLog } from "@/lib/shared/sentry";
 import { triggerEvent } from "./trigger";
 import { assertDefinedOrRaiseNonRetriableError } from "./utils";
 
@@ -79,7 +89,12 @@ Always output:
 - summaryLine: one line (under ~200 characters).
 - reasoning: short internal rationale.
 
-Optional matchedIssueGroupId: only from the provided ID list when the thread clearly belongs in that group; otherwise null. Do not invent IDs.
+LEAD CATEGORY — set leadCategoryKey when, and only when, this is a genuine lead or customer enquiry (i.e. you chose business_lead above). Pick from:
+${leadCategoryAiMenu()}
+
+Website form submissions already state their category and never reach you; you only see plain email, so judge from what the sender actually says. Set leadCategoryKey to null and leadCategoryConfidence to 0 for vendor pitches, job applications, press, investors, and spam — those are handled by the bucket alone. Be honest with leadCategoryConfidence: below ${LEAD_CATEGORY_MIN_CONFIDENCE} the lead is routed to a human with no automated reply, which is the right outcome when you are unsure.
+
+Optional matchedIssueGroupId: only from the provided ID list when the thread clearly belongs in that group; otherwise null. Do not invent IDs. The list deliberately excludes the "Lead — …" category groups; those are assigned from leadCategoryKey, not by you.
 
 Routing intent (for your reasoning; do not output separate fields):
 - Business + high importance → priority human / founder-sales path; not for generic auto-reply.
@@ -98,6 +113,33 @@ Routing intent (for your reasoning; do not output separate fields):
   });
 
   return result;
+};
+
+/** Persists the triage and kicks off assignment, whichever path produced it. */
+const applyTriage = async (
+  conversationId: number,
+  triage: InboundTriage,
+  resolvedGroupId: number | null,
+  assignedToAI: boolean,
+  messageId: number,
+) => {
+  await db
+    .update(conversations)
+    .set({
+      inboundTriage: { ...triage, matchedIssueGroupId: resolvedGroupId },
+      issueGroupId: resolvedGroupId,
+      assignedToAI,
+    })
+    .where(eq(conversations.id, conversationId));
+
+  const conversationBeforeAssign = await db.query.conversations.findFirst({
+    where: eq(conversations.id, conversationId),
+    columns: { assignedToId: true },
+  });
+
+  if (!conversationBeforeAssign?.assignedToId) {
+    await triggerEvent("conversations/issue-group.assigned", { conversationId, messageId });
+  }
 };
 
 export const categorizeConversationToIssueGroup = async ({ messageId }: { messageId: number }) => {
@@ -149,7 +191,7 @@ export const categorizeConversationToIssueGroup = async ({ messageId }: { messag
 
   const mailbox = assertDefinedOrRaiseNonRetriableError(await getMailbox());
 
-  const availableIssueGroups = await db
+  const allIssueGroups = await db
     .select({
       id: issueGroups.id,
       title: issueGroups.title,
@@ -157,7 +199,69 @@ export const categorizeConversationToIssueGroup = async ({ messageId }: { messag
     })
     .from(issueGroups);
 
+  const groupIdByTitle = new Map(allIssueGroups.map((g) => [g.title, g.id]));
+  const leadCategoryGroupTitles = new Set(LEAD_CATEGORY_SPECS.map((spec) => spec.issueGroupTitle));
+
+  /**
+   * The lead category groups are reachable only through leadCategoryKey. Offering them for
+   * free-form matching lets an unrelated email (a vendor pitch, a job application) land in a
+   * category group and collect its lead template.
+   */
+  const availableIssueGroups = allIssueGroups.filter((g) => !leadCategoryGroupTitles.has(g.title));
+
   const conversationContent = getConversationContent(conversation);
+
+  /**
+   * The website form stamps the category the lead picked into the subject
+   * (`New Lead [Franchise / machine purchase]: ...`). When it is there, take it at face value:
+   * it is the lead's own answer, so a model guess can only be worse — and it costs a call.
+   */
+  const websiteLead = parseWebsiteLeadSubject(conversation.subject);
+
+  /**
+   * The website stated a category we have never seen — most likely a new option was added to the
+   * dropdown. The lead still gets triaged by the model below, but this needs a human to add the
+   * category to LEAD_CATEGORY_SPECS, so make some noise rather than degrading quietly.
+   */
+  if (websiteLead?.rawLabel && !websiteLead.spec) {
+    captureExceptionAndLog(
+      new Error(`Unrecognised website lead category: "${websiteLead.rawLabel}" — add it to LEAD_CATEGORY_SPECS`),
+      { extra: { conversationId: conversation.id, subject: conversation.subject } },
+    );
+  }
+
+  if (websiteLead?.spec) {
+    const { spec } = websiteLead;
+    const formGroupId = groupIdByTitle.get(spec.issueGroupTitle) ?? null;
+    if (formGroupId == null) {
+      console.warn(
+        `[Triage] No issue group titled "${spec.issueGroupTitle}" — run pnpm sync:epicure-issue-groups. Falling back to AI triage.`,
+      );
+    } else {
+      const triage = leadCategoryTriage({
+        spec,
+        source: "website_form",
+        confidence: 1,
+        rawLabel: websiteLead.rawLabel,
+        leadName: websiteLead.leadName,
+        issueGroupId: formGroupId,
+      });
+
+      await applyTriage(conversation.id, triage, formGroupId, assignedToAiFromTriage(triage), messageId);
+
+      return {
+        message: `Triage from website form category: ${spec.label} (priority ${spec.priority})`,
+        conversationId: conversation.id,
+        assignedIssueGroupId: formGroupId,
+        issueGroupTitle: spec.issueGroupTitle,
+        triageSummary: triage.summaryLine,
+        assignedToAI: assignedToAiFromTriage(triage),
+        source: "website_form_category",
+        priority: spec.priority,
+        routedTo: spec.routingRole,
+      };
+    }
+  }
 
   if (!conversationContent.trim()) {
     return {
@@ -167,41 +271,55 @@ export const categorizeConversationToIssueGroup = async ({ messageId }: { messag
   }
 
   const aiRaw = await triageWithAi(conversationContent, availableIssueGroups, mailbox);
-  const triage = inboundTriageFromAi(aiRaw);
+  let triage = inboundTriageFromAi(aiRaw);
 
   const allowedIds = new Set(availableIssueGroups.map((g) => g.id));
-  const resolvedGroupId =
+  let resolvedGroupId =
     triage.matchedIssueGroupId != null && allowedIds.has(triage.matchedIssueGroupId)
       ? triage.matchedIssueGroupId
       : null;
 
+  /**
+   * A lead that arrived as plain email gets the same category map as a form submission, so
+   * priority and routing do not depend on which channel the lead happened to use.
+   *
+   * Below the confidence bar we keep the model's own bucket and importance rather than commit to a
+   * category, so the lead never lands in a category group on a guess. The triage still records
+   * that the model guessed one, which is what makes `leadCategoryAutoReplyAllowed` withhold the
+   * automated reply at send time.
+   */
+  const aiCategory =
+    triage.leadCategoryKey && (triage.leadCategoryConfidence ?? 0) >= LEAD_CATEGORY_MIN_CONFIDENCE
+      ? leadCategorySpec(triage.leadCategoryKey)
+      : null;
+
+  if (aiCategory) {
+    const categoryGroupId = groupIdByTitle.get(aiCategory.issueGroupTitle) ?? null;
+    if (categoryGroupId == null) {
+      console.warn(
+        `[Triage] No issue group titled "${aiCategory.issueGroupTitle}" — run pnpm sync:epicure-issue-groups. Keeping the model's own group match.`,
+      );
+    } else {
+      resolvedGroupId = categoryGroupId;
+      triage = leadCategoryTriage({
+        spec: aiCategory,
+        source: "ai_inferred",
+        confidence: triage.leadCategoryConfidence ?? 0,
+        rawLabel: null,
+        leadName: null,
+        issueGroupId: categoryGroupId,
+        geography: triage.geography,
+        summaryLine: triage.summaryLine,
+        reasoning: triage.reasoning,
+      });
+    }
+  }
+
   const assignedToAI = assignedToAiFromTriage(triage);
 
-  await db
-    .update(conversations)
-    .set({
-      inboundTriage: {
-        ...triage,
-        matchedIssueGroupId: resolvedGroupId,
-      },
-      issueGroupId: resolvedGroupId,
-      assignedToAI,
-    })
-    .where(eq(conversations.id, conversation.id));
+  await applyTriage(conversation.id, triage, resolvedGroupId, assignedToAI, messageId);
 
-  const matchedTitle = resolvedGroupId ? availableIssueGroups.find((g) => g.id === resolvedGroupId)?.title : undefined;
-
-  const conversationBeforeAssign = await db.query.conversations.findFirst({
-    where: eq(conversations.id, conversation.id),
-    columns: { assignedToId: true },
-  });
-
-  if (!conversationBeforeAssign?.assignedToId) {
-    await triggerEvent("conversations/issue-group.assigned", {
-      conversationId: conversation.id,
-      messageId,
-    });
-  }
+  const matchedTitle = resolvedGroupId ? allIssueGroups.find((g) => g.id === resolvedGroupId)?.title : undefined;
 
   return {
     message: resolvedGroupId

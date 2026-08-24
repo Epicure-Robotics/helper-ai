@@ -28,6 +28,24 @@ describe("parseFormLeadHtml", () => {
     expect(r?.name).toContain("Acme");
   });
 
+  it("picks up the enquiry category row when the body carries one", () => {
+    const html = `<html><body>
+      What's this about: Events &amp; bulk requirements<br/>
+      Name: Priya N<br/>
+      Email: priya@example.com<br/>
+      Message: 400 servings on the 12th.
+    </body></html>`;
+    const r = parseFormLeadHtml(html);
+    expect(r?.category).toMatch(/bulk/i);
+    expect(r?.name).toContain("Priya");
+    expect(r?.email).toBe("priya@example.com");
+  });
+
+  it("leaves category null when the body has no such row", () => {
+    const html = `<html><body>Name: Jane<br/>Email: jane@example.com</body></html>`;
+    expect(parseFormLeadHtml(html)?.category).toBeNull();
+  });
+
   it("returns null without email", () => {
     expect(parseFormLeadHtml("<p>Name only</p>")).toBeNull();
   });

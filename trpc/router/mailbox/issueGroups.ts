@@ -50,6 +50,7 @@ export const issueGroupsRouter = {
           monthCount: sql<number>`COUNT(CASE WHEN ${conversations.createdAt} >= ${startOfMonth}::timestamp THEN 1 END)::int`,
           vipCount: sql<number>`COUNT(CASE WHEN ${platformCustomers.value} >= COALESCE(${mailboxes.vipThreshold}, 999999) * 100 THEN 1 END)::int`,
           autoResponseEnabled: issueGroups.autoResponseEnabled,
+          standardAnswer: issueGroups.standardAnswer,
           defaultSavedReplyId: issueGroups.defaultSavedReplyId,
         })
         .from(issueGroups)
@@ -71,6 +72,7 @@ export const issueGroupsRouter = {
           issueGroups.createdAt,
           issueGroups.updatedAt,
           issueGroups.autoResponseEnabled,
+          issueGroups.standardAnswer,
           issueGroups.defaultSavedReplyId,
         )
         .orderBy(desc(issueGroups.createdAt))
@@ -144,6 +146,7 @@ export const issueGroupsRouter = {
         assignees: issueGroups.assignees,
         customPrompt: issueGroups.customPrompt,
         autoResponseEnabled: issueGroups.autoResponseEnabled,
+        standardAnswer: issueGroups.standardAnswer,
         defaultSavedReplyId: issueGroups.defaultSavedReplyId,
         conversationCount: sql<number>`COUNT(${conversations.id})::int`,
       })
@@ -166,6 +169,7 @@ export const issueGroupsRouter = {
         issueGroups.assignees,
         issueGroups.customPrompt,
         issueGroups.autoResponseEnabled,
+        issueGroups.standardAnswer,
         issueGroups.defaultSavedReplyId,
       )
       .orderBy(desc(issueGroups.createdAt));
@@ -204,18 +208,20 @@ export const issueGroupsRouter = {
         title: z.string().min(1).max(200),
         description: z.string().max(1000).optional(),
         customPrompt: z.string().optional().nullable(),
+        standardAnswer: z.string().max(4000).optional().nullable(),
         autoResponseEnabled: z.boolean().optional(),
         defaultSavedReplyId: z.number().optional().nullable(),
       }),
     )
     .mutation(async ({ input }) => {
-      const { title, description, customPrompt, autoResponseEnabled, defaultSavedReplyId } = input;
+      const { title, description, customPrompt, standardAnswer, autoResponseEnabled, defaultSavedReplyId } = input;
       const newGroup = await db
         .insert(issueGroups)
         .values({
           title,
           description,
           customPrompt,
+          standardAnswer,
           autoResponseEnabled: autoResponseEnabled ? 1 : 0,
           defaultSavedReplyId,
           color: getRandomIssueColor(),
@@ -236,12 +242,14 @@ export const issueGroupsRouter = {
         description: z.string().max(1000).optional(),
         color: z.string().optional(),
         customPrompt: z.string().optional().nullable(),
+        standardAnswer: z.string().max(4000).optional().nullable(),
         autoResponseEnabled: z.boolean().optional(),
         defaultSavedReplyId: z.number().optional().nullable(),
       }),
     )
     .mutation(async ({ input }) => {
-      const { id, title, description, color, customPrompt, autoResponseEnabled, defaultSavedReplyId } = input;
+      const { id, title, description, color, customPrompt, standardAnswer, autoResponseEnabled, defaultSavedReplyId } =
+        input;
 
       const existingGroup = await db.query.issueGroups.findFirst({
         where: eq(issueGroups.id, id),
@@ -258,6 +266,7 @@ export const issueGroupsRouter = {
           description,
           color,
           customPrompt,
+          standardAnswer,
           autoResponseEnabled: autoResponseEnabled !== undefined ? (autoResponseEnabled ? 1 : 0) : undefined,
           defaultSavedReplyId,
           updatedAt: new Date(),

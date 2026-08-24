@@ -4,6 +4,9 @@ import { isFormLeadMessage, isWebsiteFormNotificationSubject } from "@/lib/leads
 describe("formLeadDetection", () => {
   it("detects website form subjects case-insensitively", () => {
     expect(isWebsiteFormNotificationSubject("🚀 New Lead: Jeet Kshatriya - Epicure Robotics")).toBe(true);
+    expect(
+      isWebsiteFormNotificationSubject("New Lead [Franchise / machine purchase]: Tanmay Aggarwal - Epicure Robotics"),
+    ).toBe(true);
     expect(isWebsiteFormNotificationSubject("Epicure Robotics - New Business Inquiry")).toBe(true);
     expect(isWebsiteFormNotificationSubject("Contact form submission")).toBe(true);
     expect(isWebsiteFormNotificationSubject("Random invoice")).toBe(false);

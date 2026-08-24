@@ -11,6 +11,7 @@ import { updateConversation } from "@/lib/data/conversation";
 import { ensureCleanedUpText, getTextWithConversationSubject } from "@/lib/data/conversationMessage";
 import { getMailbox } from "@/lib/data/mailbox";
 import { createMessageNotification } from "@/lib/data/messageNotifications";
+import { leadCategoryAutoReplyAllowed } from "@/lib/leads/leadCategory";
 import { extractTemplateVariables, replaceTemplateVariables } from "@/lib/utils/templateVariables";
 
 class AITimeoutError extends Error {}
@@ -62,7 +63,32 @@ export const handleTemplateResponse = async ({
     where: eq(issueGroups.id, conversation.issueGroupId),
   });
 
-  if (!issueGroup?.defaultSavedReplyId) {
+  if (!issueGroup) {
+    return { message: "Skipped - issue group not found" };
+  }
+
+  /**
+   * "Enable AI Auto-Response" (Settings → Common Issues). Off means this category never sends an
+   * automated mail — the lead sits with its assigned human instead.
+   */
+  if (issueGroup.autoResponseEnabled !== 1) {
+    return { message: "Skipped - auto-response disabled for this issue group", issueGroupId: issueGroup.id };
+  }
+
+  /**
+   * A category the lead stated on the form is certain; one the model inferred from a plain email
+   * is not. Below the confidence bar the lead still gets filed and assigned — it just does not get
+   * a templated reply written for a category we are not sure it belongs to.
+   */
+  if (conversation.inboundTriage && !leadCategoryAutoReplyAllowed(conversation.inboundTriage)) {
+    return {
+      message: "Skipped - lead category inferred with low confidence; leaving the reply to a human",
+      conversationId,
+      leadCategoryConfidence: conversation.inboundTriage.leadCategoryConfidence,
+    };
+  }
+
+  if (!issueGroup.defaultSavedReplyId) {
     return { message: "Skipped - no default saved reply" };
   }
 
@@ -108,7 +134,18 @@ export const handleTemplateResponse = async ({
 
     // Enhance instructions for structured output
     const customInstructions = issueGroup.customPrompt ? `\n\nCustom Instructions: ${issueGroup.customPrompt}` : "";
-    const prompt = `You are answering an email using a template. Provide content for ALL template variables. Do not include any URLs or links in your responses.\n\nTemplate variables to fill: ${templateVariables.join(", ")}${customInstructions}`;
+
+    /**
+     * When the team has written a standard answer for this category, it is the ONLY source of
+     * facts — the model rewrites it to fit the email rather than answering from the knowledge
+     * base. Empty falls back to the previous behaviour.
+     */
+    const standardAnswer = issueGroup.standardAnswer?.trim();
+    const standardAnswerInstructions = standardAnswer
+      ? `\n\nSTANDARD ANSWER — the team's current, authoritative position for this category:\n"""\n${standardAnswer}\n"""\nEvery factual statement you make must come from the standard answer above. Rephrase it to fit this specific email; do not add timelines, prices, availability, capabilities, or commitments that are not stated in it, and do not fall back to the knowledge base for facts. If the standard answer does not address what they asked, say the team will follow up with those details rather than inventing them.`
+      : "";
+
+    const prompt = `You are answering an email using a template. Provide content for ALL template variables. Do not include any URLs or links in your responses.\n\nTemplate variables to fill: ${templateVariables.join(", ")}${standardAnswerInstructions}${customInstructions}`;
 
     if (systemMessages[0] && typeof systemMessages[0].content === "string") {
       systemMessages[0].content += `\n\n${prompt}`;
