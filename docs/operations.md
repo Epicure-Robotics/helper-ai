@@ -137,8 +137,9 @@ template contain `{variables}`. See [lead-pipeline.md](./lead-pipeline.md#auto-r
 
 ## Known gaps
 
-- The **priority badge and filter have not been verified in a browser**. They typecheck, build, and
-  render server-side without error, but nobody has clicked them.
 - The **Gmail → webhook leg is unproven with a real website form submission**; every test so far has
   injected conversations directly.
 - Two pure tests are excluded from CI for pre-existing failures (see `vitest.pure.config.mts`).
+
+The priority badge and filter, sign-in, Settings → Common Issues (including saving a standard
+answer), Settings → Team, and the conversation view have all been exercised in a browser.
