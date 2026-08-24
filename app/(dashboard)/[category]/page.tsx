@@ -18,7 +18,21 @@ type PageProps = {
     isClassified?: string;
     isAssigned?: string;
     hasUnreadMessages?: string;
+    /** nuqs serialises the array as a comma-separated value, e.g. ?priority=high,med */
+    priority?: string | string[];
   }>;
+};
+
+/**
+ * The server prefetch has to use the same input as the client query, or a priority-filtered URL
+ * prefetches the unfiltered list and the first paint disagrees with what the client asks for.
+ */
+const parsePriority = (raw: string | string[] | undefined): ("high" | "med" | "low")[] | undefined => {
+  if (!raw) return undefined;
+  const values = (Array.isArray(raw) ? raw : raw.split(","))
+    .map((value) => value.trim())
+    .filter((value): value is "high" | "med" | "low" => value === "high" || value === "med" || value === "low");
+  return values.length > 0 ? values : undefined;
 };
 
 const Page = async ({ params, searchParams }: PageProps) => {
@@ -52,6 +66,7 @@ const Page = async ({ params, searchParams }: PageProps) => {
     isClassified: resolvedSearchParams.isClassified === "true" ? true : undefined,
     isAssigned: resolvedSearchParams.isAssigned === "true" ? true : undefined,
     hasUnreadMessages: resolvedSearchParams.hasUnreadMessages === "true" ? true : undefined,
+    priority: parsePriority(resolvedSearchParams.priority),
     displayUnreadBehavior: ["mine", "assigned"].includes(resolvedParams.category),
   };
 

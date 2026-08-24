@@ -38,17 +38,27 @@ export const List = () => {
     fetchNextPage,
   } = useConversationListContext();
 
-  const [showFilters, setShowFilters] = useState(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("conversationFiltersVisible") ?? "false") === "true";
-    }
-    return false;
-  });
+  /**
+   * Starts closed on both server and client, then restores the saved preference after mount.
+   *
+   * Reading localStorage in the useState initialiser made the server render the bar closed and the
+   * client render it open, which is a hydration mismatch: React throws away the server tree and
+   * re-renders the whole list on the client.
+   */
+  const [showFilters, setShowFilters] = useState(false);
+  const [filtersRestored, setFiltersRestored] = useState(false);
   const { filterValues, activeFilterCount, updateFilter, clearFilters } = useConversationFilters();
 
   useEffect(() => {
+    setShowFilters(localStorage.getItem("conversationFiltersVisible") === "true");
+    setFiltersRestored(true);
+  }, []);
+
+  useEffect(() => {
+    // Don't persist the pre-restore default, or the first render would clear a saved "open".
+    if (!filtersRestored) return;
     localStorage.setItem("conversationFiltersVisible", String(showFilters));
-  }, [showFilters]);
+  }, [showFilters, filtersRestored]);
   const [allConversationsSelected, setAllConversationsSelected] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const utils = api.useUtils();
