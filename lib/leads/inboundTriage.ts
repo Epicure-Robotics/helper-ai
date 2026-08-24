@@ -148,26 +148,32 @@ export function assignedToAiFromTriage(triage: InboundTriage): boolean {
 
 /**
  * Flat object, deliberately NOT a z.discriminatedUnion: a union compiles to a top-level `anyOf`,
- * and the OpenAI tool-call schema must be `type: "object"`. Using a union here made every call
- * fail with `schema must be a JSON Schema of 'type: "object"', got 'type: "None"'`, which is why
- * no inbound message was ever triaged.
+ * and the OpenAI tool-call schema must be `type: "object"`.
  *
- * `categorySource` picks which of the two field groups is meaningful; the other is null.
+ * There is also no `categorySource` discriminator. It used to exist and the model kept filling it
+ * with the category itself (`"categorySource": "generic_info_spam"`) instead of "starter" or
+ * "proposed", failing validation and killing the job. The source is now inferred from which fields
+ * came back, so there is nothing to get wrong: fill `starterKey`, or the `proposed*` fields, or
+ * neither.
+ *
+ * Every field is nullish. A model that omits a field it considers inapplicable should not cost us
+ * a lead — `inboundTriageFromAi` normalises whatever arrives.
  */
 export const inboundTriageAISchema = z.object({
-  categorySource: z
-    .enum(["starter", "proposed"])
-    .describe("Use 'starter' when a starter category fits; 'proposed' to name a new one"),
-  starterKey: z.enum(starterInboundCategoryKeys).nullish().describe("Required when categorySource is 'starter'"),
+  starterKey: z
+    .enum(starterInboundCategoryKeys)
+    .nullish()
+    .describe("Closest starter category. Null only when none of them fit at all."),
   starterMatchConfidence: z.number().min(0).max(1).nullish(),
-  proposedKey: z.string().nullish().describe("snake_case stable key; required when categorySource is 'proposed'"),
-  proposedLabel: z.string().nullish().describe("Human-readable category name for a proposed category"),
+  proposedKey: z.string().nullish().describe("Only when no starter fits: snake_case key for a new category"),
+  proposedLabel: z.string().nullish().describe("Human-readable name for the proposed category"),
   proposedConfidence: z.number().min(0).max(1).nullish(),
   importance: z.enum(["low", "med", "high"]),
-  geography: z.string().nullable(),
-  summaryLine: z.string().max(400),
-  reasoning: z.string(),
-  matchedIssueGroupId: z.number().nullable(),
+  geography: z.string().nullish(),
+  /** No max length here — a long summary is not worth failing a triage over; it is truncated below. */
+  summaryLine: z.string().nullish(),
+  reasoning: z.string().nullish(),
+  matchedIssueGroupId: z.number().nullish(),
   /**
    * Which of the six lead categories this message is, when it is a lead at all. Null for vendor
    * pitches, hiring, press, and spam. Drives priority and routing exactly as the website form
@@ -180,19 +186,26 @@ export const inboundTriageAISchema = z.object({
 export type InboundTriageAIResult = z.infer<typeof inboundTriageAISchema>;
 
 export function inboundTriageFromAi(ai: InboundTriageAIResult): InboundTriage {
-  /** Models routinely omit fields they consider inapplicable rather than sending explicit nulls. */
   const shared = {
     importance: ai.importance,
     geography: ai.geography ?? null,
-    summaryLine: ai.summaryLine ?? "",
+    summaryLine: (ai.summaryLine ?? "").slice(0, 400),
     reasoning: ai.reasoning ?? undefined,
     matchedIssueGroupId: ai.matchedIssueGroupId ?? null,
-    leadCategoryKey: ai.leadCategoryKey ?? null,
-    leadCategoryConfidence: ai.leadCategoryConfidence ?? 0,
+    leadCategoryKey: ai.leadCategoryKey,
+    leadCategoryConfidence: ai.leadCategoryConfidence,
     leadCategorySource: ai.leadCategoryKey ? ("ai_inferred" as const) : null,
   };
 
-  if (ai.categorySource === "proposed" && ai.proposedKey && ai.proposedLabel) {
+  // A validated starter key wins over a free-text proposal when the model sends both.
+  if (ai.starterKey) {
+    return {
+      category: { source: "starter", key: ai.starterKey, confidence: ai.starterMatchConfidence ?? 0 },
+      ...shared,
+    };
+  }
+
+  if (ai.proposedKey && ai.proposedLabel) {
     return {
       category: {
         source: "proposed",
@@ -204,14 +217,10 @@ export function inboundTriageFromAi(ai: InboundTriageAIResult): InboundTriage {
     };
   }
 
+  // Nothing usable came back. Treat as low-signal rather than guessing a bucket: that keeps it off
+  // the AI-reply path and in the general queue, where a human decides.
   return {
-    category: {
-      source: "starter",
-      // The model said "starter" but gave no key: treat as low-signal rather than guessing a
-      // bucket, which keeps it off the AI-reply path and routes it to the general queue.
-      key: ai.starterKey ?? "generic_info_spam",
-      confidence: ai.starterMatchConfidence ?? 0,
-    },
+    category: { source: "starter", key: "generic_info_spam", confidence: 0 },
     ...shared,
   };
 }

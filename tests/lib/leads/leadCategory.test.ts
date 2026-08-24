@@ -167,7 +167,6 @@ describe("leadCategoryAutoReplyAllowed", () => {
     // Below the bar the job keeps the model's own triage, so the gate is the only thing
     // standing between an unsure guess and an automated reply.
     const triage = inboundTriageFromAi({
-      categorySource: "starter",
       starterKey: "business_lead",
       starterMatchConfidence: 0.8,
       proposedKey: null,
@@ -187,7 +186,6 @@ describe("leadCategoryAutoReplyAllowed", () => {
 
   it("does not fire when the model saw no lead category at all", () => {
     const triage = inboundTriageFromAi({
-      categorySource: "starter",
       starterKey: "hiring_career",
       starterMatchConfidence: 0.95,
       proposedKey: null,
