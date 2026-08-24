@@ -69,9 +69,12 @@ export const EventItem = ({
     return "assigned to unknown user";
   };
 
+  // "Email auto ignored" + status "ignored" would join to "Email auto ignored and ignored".
+  const statusRepeatsEventType = event.eventType === "email_auto_ignored" && event.changes.status === "ignored";
+
   const description = [
     eventDescriptions[event.eventType],
-    event.changes.status ? statusVerbs[event.changes.status] : null,
+    event.changes.status && !statusRepeatsEventType ? statusVerbs[event.changes.status] : null,
     getAssignmentDescription(),
     event.changes.assignedToAI ? "assigned to AI assistant" : null,
     event.changes.assignedToAI === false ? "AI assistant unassigned" : null,

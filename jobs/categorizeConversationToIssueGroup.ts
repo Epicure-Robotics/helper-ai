@@ -147,7 +147,9 @@ const applyTriage = async (
   if (rescueFromIgnored) {
     await db.insert(conversationEvents).values({
       conversationId,
-      type: "email_auto_ignored",
+      // "update", not "email_auto_ignored": this undoes an auto-ignore, and the timeline renders
+      // the event type and the status change together — the latter would read "auto ignored and opened".
+      type: "update",
       changes: { status: "open" },
       reason: `Reopened: triage identified this as a lead (${triage.leadCategoryKey}, priority ${triage.importance})`,
     });
