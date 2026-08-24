@@ -81,7 +81,9 @@ const triageWithAi = async (
 STARTER categories — pick the closest starter when it reasonably fits:
 ${starterSection}
 
-If none of the starters fit well, use categorySource "proposed": provide a new snake_case key, a short human label, and confidence (0-1).
+If none of the starters fit well, set categorySource to "proposed" and fill proposedKey (snake_case), proposedLabel, and proposedConfidence.
+
+Fill exactly one group and null the other: categorySource "starter" → starterKey + starterMatchConfidence, with proposedKey/proposedLabel/proposedConfidence null. categorySource "proposed" → the proposed fields, with starterKey/starterMatchConfidence null.
 
 Always output:
 - importance: "low" | "med" | "high" using company/org size signals, specificity (e.g. named site, volumes, budget), urgency, and buying intent. Business leads from large or strategic accounts skew "high".

@@ -146,7 +146,23 @@ export function assignedToAiFromTriage(triage: InboundTriage): boolean {
   return false;
 }
 
-const triageShared = z.object({
+/**
+ * Flat object, deliberately NOT a z.discriminatedUnion: a union compiles to a top-level `anyOf`,
+ * and the OpenAI tool-call schema must be `type: "object"`. Using a union here made every call
+ * fail with `schema must be a JSON Schema of 'type: "object"', got 'type: "None"'`, which is why
+ * no inbound message was ever triaged.
+ *
+ * `categorySource` picks which of the two field groups is meaningful; the other is null.
+ */
+export const inboundTriageAISchema = z.object({
+  categorySource: z
+    .enum(["starter", "proposed"])
+    .describe("Use 'starter' when a starter category fits; 'proposed' to name a new one"),
+  starterKey: z.enum(starterInboundCategoryKeys).nullish().describe("Required when categorySource is 'starter'"),
+  starterMatchConfidence: z.number().min(0).max(1).nullish(),
+  proposedKey: z.string().nullish().describe("snake_case stable key; required when categorySource is 'proposed'"),
+  proposedLabel: z.string().nullish().describe("Human-readable category name for a proposed category"),
+  proposedConfidence: z.number().min(0).max(1).nullish(),
   importance: z.enum(["low", "med", "high"]),
   geography: z.string().nullable(),
   summaryLine: z.string().max(400),
@@ -161,55 +177,41 @@ const triageShared = z.object({
   leadCategoryConfidence: z.number().min(0).max(1).describe("0-1 confidence in leadCategoryKey; 0 when null"),
 });
 
-export const inboundTriageAISchema = z.discriminatedUnion("categorySource", [
-  triageShared.extend({
-    categorySource: z.literal("starter"),
-    starterKey: z.enum(starterInboundCategoryKeys),
-    starterMatchConfidence: z.number().min(0).max(1),
-  }),
-  triageShared.extend({
-    categorySource: z.literal("proposed"),
-    proposedKey: z.string().min(1).describe("snake_case stable key for the new category"),
-    proposedLabel: z.string().min(1).describe("Human-readable category name"),
-    proposedConfidence: z.number().min(0).max(1),
-  }),
-]);
-
 export type InboundTriageAIResult = z.infer<typeof inboundTriageAISchema>;
 
 export function inboundTriageFromAi(ai: InboundTriageAIResult): InboundTriage {
-  if (ai.categorySource === "starter") {
+  /** Models routinely omit fields they consider inapplicable rather than sending explicit nulls. */
+  const shared = {
+    importance: ai.importance,
+    geography: ai.geography ?? null,
+    summaryLine: ai.summaryLine ?? "",
+    reasoning: ai.reasoning ?? undefined,
+    matchedIssueGroupId: ai.matchedIssueGroupId ?? null,
+    leadCategoryKey: ai.leadCategoryKey ?? null,
+    leadCategoryConfidence: ai.leadCategoryConfidence ?? 0,
+    leadCategorySource: ai.leadCategoryKey ? ("ai_inferred" as const) : null,
+  };
+
+  if (ai.categorySource === "proposed" && ai.proposedKey && ai.proposedLabel) {
     return {
       category: {
-        source: "starter",
-        key: ai.starterKey,
-        confidence: ai.starterMatchConfidence,
+        source: "proposed",
+        key: ai.proposedKey,
+        label: ai.proposedLabel,
+        confidence: ai.proposedConfidence ?? 0,
       },
-      importance: ai.importance,
-      geography: ai.geography,
-      summaryLine: ai.summaryLine,
-      reasoning: ai.reasoning,
-      matchedIssueGroupId: ai.matchedIssueGroupId,
-      leadCategoryKey: ai.leadCategoryKey,
-      leadCategoryConfidence: ai.leadCategoryConfidence,
-      leadCategorySource: ai.leadCategoryKey ? "ai_inferred" : null,
+      ...shared,
     };
   }
 
   return {
     category: {
-      source: "proposed",
-      key: ai.proposedKey,
-      label: ai.proposedLabel,
-      confidence: ai.proposedConfidence,
+      source: "starter",
+      // The model said "starter" but gave no key: treat as low-signal rather than guessing a
+      // bucket, which keeps it off the AI-reply path and routes it to the general queue.
+      key: ai.starterKey ?? "generic_info_spam",
+      confidence: ai.starterMatchConfidence ?? 0,
     },
-    importance: ai.importance,
-    geography: ai.geography,
-    summaryLine: ai.summaryLine,
-    reasoning: ai.reasoning,
-    matchedIssueGroupId: ai.matchedIssueGroupId,
-    leadCategoryKey: ai.leadCategoryKey,
-    leadCategoryConfidence: ai.leadCategoryConfidence,
-    leadCategorySource: ai.leadCategoryKey ? "ai_inferred" : null,
+    ...shared,
   };
 }
