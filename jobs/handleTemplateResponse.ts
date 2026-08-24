@@ -11,7 +11,7 @@ import { updateConversation } from "@/lib/data/conversation";
 import { ensureCleanedUpText, getTextWithConversationSubject } from "@/lib/data/conversationMessage";
 import { getMailbox } from "@/lib/data/mailbox";
 import { createMessageNotification } from "@/lib/data/messageNotifications";
-import { leadCategoryAutoReplyAllowed } from "@/lib/leads/leadCategory";
+import { leadCategoryAutoReplyAllowed, parseWebsiteLeadSubject } from "@/lib/leads/leadCategory";
 import { extractTemplateVariables, replaceTemplateVariables } from "@/lib/utils/templateVariables";
 
 class AITimeoutError extends Error {}
@@ -123,6 +123,17 @@ export const handleTemplateResponse = async ({
     return { message: "Skipped - no variables in template" };
   }
 
+  /**
+   * We already know who the lead is, so never let the model guess the greeting — asked to fill
+   * {name} it has produced "Hi New Lead," by lifting words out of the subject line.
+   */
+  const parsedSubjectName = parseWebsiteLeadSubject(conversation.subject)?.leadName ?? null;
+  const knownName =
+    parsedSubjectName?.trim() ||
+    conversation.emailFromName?.trim() ||
+    conversation.emailFrom?.split("@")[0]?.trim() ||
+    null;
+
   const emailText = (await getTextWithConversationSubject(conversation, message)).trim();
   if (emailText.length === 0) return { message: "Skipped - email text is empty" };
 
@@ -147,6 +158,10 @@ export const handleTemplateResponse = async ({
     ];
     const coreMessages = convertToCoreMessages(allMessages, { tools: {} });
 
+    // Fill what we already know ourselves; only the rest goes to the model.
+    const preFilled: Record<string, string> = knownName ? { name: knownName } : {};
+    const aiVariables = templateVariables.filter((v) => !(v in preFilled));
+
     // Enhance instructions for structured output
     const customInstructions = issueGroup.customPrompt ? `\n\nCustom Instructions: ${issueGroup.customPrompt}` : "";
 
@@ -158,7 +173,7 @@ export const handleTemplateResponse = async ({
     const standardAnswer = issueGroup.standardAnswer?.trim();
     const standardAnswerInstructions = standardAnswer
       ? `\n\nSTANDARD ANSWER — the team's current, authoritative position for this category:\n"""\n${standardAnswer}\n"""\nEvery factual statement you make must come from the standard answer above. Rephrase it to fit this specific email; do not add timelines, prices, availability, capabilities, or commitments that are not stated in it, and do not fall back to the knowledge base for facts. If the standard answer does not address what they asked, say the team will follow up with those details rather than inventing them.`
-      : "";
+      : `\n\nNo standard answer has been set for this category, so you do not know the team's current position. Do NOT state timelines, prices, availability, capacity, or any commitment. Where the customer asked for specifics, say the team will confirm them directly.`;
 
     /**
      * Values are substituted mid-sentence, so they must read as fragments. Without this the model
@@ -180,33 +195,34 @@ Template being filled:
 ${savedReplyTemplate}
 """
 
-Variables to fill: ${templateVariables.join(", ")}${standardAnswerInstructions}${customInstructions}`;
+Variables to fill: ${aiVariables.join(", ")}${standardAnswerInstructions}${customInstructions}`;
 
     if (systemMessages[0] && typeof systemMessages[0].content === "string") {
       systemMessages[0].content += `\n\n${prompt}`;
     }
 
     // Use Structured AI Output
-    const values = await runAIObjectQuery({
-      mailbox,
-      queryType: "chat_completion",
-      schema: z.object(
-        Object.fromEntries(templateVariables.map((v) => [v, z.string().describe(`Content for variable ${v}`)])),
-      ),
-      messages: [...systemMessages, ...coreMessages],
-    });
+    const aiValues = aiVariables.length
+      ? await runAIObjectQuery({
+          mailbox,
+          queryType: "chat_completion",
+          schema: z.object(
+            Object.fromEntries(aiVariables.map((v) => [v, z.string().describe(`Content for variable ${v}`)])),
+          ),
+          messages: [...systemMessages, ...coreMessages],
+        })
+      : {};
+    const values = { ...aiValues, ...preFilled } as Record<string, string>;
 
     // Validate variables
-    const missingVars = templateVariables.filter(
-      (v) => !values[v as keyof typeof values] || (values as any)[v].trim() === "",
-    );
+    const missingVars = templateVariables.filter((v) => !values[v] || (values as any)[v].trim() === "");
 
     if (missingVars.length > 0) {
       console.log(`[TemplateResponse] Skipping: Missing variables: ${missingVars.join(", ")}`);
       return { message: "Skipped - incomplete variables" };
     }
 
-    const filledContent = replaceTemplateVariables(savedReplyTemplate, values as Record<string, string>);
+    const filledContent = replaceTemplateVariables(savedReplyTemplate, values);
 
     await db.transaction(async (tx) => {
       // Create the assistant message record with HTML template

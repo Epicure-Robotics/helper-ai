@@ -138,6 +138,8 @@ export const EPICURE_LEAD_CATEGORY_ISSUE_GROUP_SPECS: EpicureIssueGroupSpec[] = 
 
 Thanks for your interest in {specific_use_case} with Epicure Robotics. Franchise and machine purchase enquiries are handled directly by our founding team.
 
+{answer}
+
 We have your details and someone will be in touch shortly to talk through options and next steps.
 
 Best regards,
@@ -153,6 +155,8 @@ Epicure Robotics`,
     templateBody: `Hi {name},
 
 Thank you for asking about hosting an Epicure kiosk at {specific_use_case}. Bengaluru is our home market, so we can usually move quickly here.
+
+{answer}
 
 Our team will reach out to confirm site details and schedule a walkthrough.
 
