@@ -56,10 +56,7 @@ async function main() {
 
     console.log(`  ${apply ? "queue" : "would queue"}  ${c.createdAt?.toISOString()}  ${String(c.subject).slice(0, 58)}`);
     if (apply) {
-      await enqueueEventWithDb(scriptDb, "conversations/message.created", {
-        messageId: message.id,
-        conversationId: c.id,
-      });
+      await enqueueEventWithDb(scriptDb, "conversations/message.created", { messageId: message.id });
     }
     queued++;
   }
