@@ -68,7 +68,10 @@ export const NoConversations = ({ filtered, onClearFilters }: { filtered?: boole
               </div>
             )}
           </Link>
-          <Link href="/settings/integrations" className="border transition-colors hover:border-foreground rounded-lg p-4">
+          <Link
+            href="/settings/integrations"
+            className="border transition-colors hover:border-foreground rounded-lg p-4"
+          >
             <div className="flex items-center gap-2">
               {onboardingState?.hasGmailSupportEmail ? <Check className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
               <p className={cn(onboardingState?.hasGmailSupportEmail && "line-through")}>

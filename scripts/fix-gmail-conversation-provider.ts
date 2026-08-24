@@ -1,10 +1,9 @@
-/* eslint-disable no-console */
 // One-time fix: restore conversationProvider="gmail" for conversations that were
 // incorrectly set to "chat" by handleAutoResponse/handleTemplateResponse, but have
 // Gmail thread IDs on their messages.
-import { eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { conversationMessages, conversations } from "@/db/schema";
+import { conversations } from "@/db/schema";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
@@ -39,9 +38,6 @@ if (DRY_RUN) {
 
 const ids = (affected.rows as any[]).map((r) => r.id as number);
 
-await db
-  .update(conversations)
-  .set({ conversationProvider: "gmail" })
-  .where(inArray(conversations.id, ids));
+await db.update(conversations).set({ conversationProvider: "gmail" }).where(inArray(conversations.id, ids));
 
 console.log(`\n✅ Fixed ${ids.length} conversations — conversationProvider restored to "gmail".`);

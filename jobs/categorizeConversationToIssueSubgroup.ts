@@ -5,10 +5,10 @@ import { conversationMessages } from "@/db/schema/conversationMessages";
 import { conversations } from "@/db/schema/conversations";
 import { issueSubgroups } from "@/db/schema/issueSubgroups";
 import { generateEmbedding, runAIObjectQuery } from "@/lib/ai";
-import { cosineSimilarity, issueSubgroupEmbeddingText, normalizeIssueSubgroupTitle } from "@/lib/ai/issueSubgroups";
 import { MINI_MODEL } from "@/lib/ai/core";
-import { env } from "@/lib/env";
+import { cosineSimilarity, issueSubgroupEmbeddingText, normalizeIssueSubgroupTitle } from "@/lib/ai/issueSubgroups";
 import { getMailbox } from "@/lib/data/mailbox";
+import { env } from "@/lib/env";
 import { assertDefinedOrRaiseNonRetriableError } from "./utils";
 
 const EXACT_MERGE_SIMILARITY = 0.9;
@@ -98,9 +98,13 @@ const createOrReuseSubgroup = async ({
   const existingByTitle = siblings.find((sibling) => sibling.normalizedTitle === normalizedTitle);
   if (existingByTitle) return existingByTitle.id;
 
-  const embedding = await generateEmbedding(issueSubgroupEmbeddingText(title, description), "issue-subgroup-embedding", {
-    skipCache: true,
-  });
+  const embedding = await generateEmbedding(
+    issueSubgroupEmbeddingText(title, description),
+    "issue-subgroup-embedding",
+    {
+      skipCache: true,
+    },
+  );
 
   const scoredSiblings = siblings
     .filter((sibling) => sibling.embedding)

@@ -155,6 +155,45 @@ export async function unsubscribeFromPushNotifications(): Promise<{
   }
 }
 
+/** The shape `user.subscribeToPush` stores: one row per (employee, device). */
+export type PushSubscriptionPayload = {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent: string;
+};
+
+export const toPushSubscriptionPayload = (subscription: PushSubscription): PushSubscriptionPayload => {
+  const keys = subscription.toJSON().keys;
+  return {
+    endpoint: subscription.endpoint,
+    p256dh: keys?.p256dh ?? "",
+    auth: keys?.auth ?? "",
+    userAgent: navigator.userAgent,
+  };
+};
+
+/**
+ * The browser's current subscription for this device, if one exists — never prompts.
+ *
+ * Browsers keep the notification *permission* independently of the *subscription*, and they rotate
+ * or drop subscriptions on their own (storage eviction, browser update, `pushsubscriptionchange`).
+ * So "permission === granted" does not imply this device has a live row in `push_subscriptions`;
+ * call this on load and re-upsert whatever it returns.
+ */
+export async function getExistingPushSubscription(): Promise<PushSubscriptionPayload | null> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    return subscription ? toPushSubscriptionPayload(subscription) : null;
+  } catch (error) {
+    console.error("Failed to read existing push subscription:", error);
+    return null;
+  }
+}
+
 /**
  * Checks if push notifications are currently supported and permitted
  */

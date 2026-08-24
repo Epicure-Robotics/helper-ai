@@ -9,6 +9,7 @@ import { triggerEvent } from "@/jobs/trigger";
 import { createUserMessage } from "@/lib/ai/chat";
 import { getMailbox } from "@/lib/data/mailbox";
 import { storeTools } from "@/lib/data/storedTool";
+import { checkWidgetChatRateLimit, widgetSessionKey } from "@/lib/rateLimit";
 import { validateAttachments } from "@/lib/shared/attachmentValidation";
 
 export const maxDuration = 60;
@@ -16,6 +17,14 @@ export const maxDuration = 60;
 export const OPTIONS = () => corsOptions("POST");
 
 export const POST = withWidgetAuth<{ slug: string }>(async ({ request, context: { params } }, { session }) => {
+  const rateLimit = await checkWidgetChatRateLimit({ request, sessionKey: widgetSessionKey(session) });
+  if (!rateLimit.allowed) {
+    return corsResponse(
+      { error: "Too many messages. Please wait a moment and try again." },
+      { status: 429, headers: { "Retry-After": rateLimit.retryAfterSeconds.toString() } },
+    );
+  }
+
   const { slug } = await params;
   const {
     content,

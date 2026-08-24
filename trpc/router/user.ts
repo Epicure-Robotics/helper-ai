@@ -10,13 +10,14 @@ import { cacheFor } from "@/lib/cache";
 import OtpEmail from "@/lib/emails/otp";
 import { isSmtpConfigured, sendEmail } from "@/lib/emails/sendEmail";
 import { env } from "@/lib/env";
+import { isWebPushConfigured, sendPushToUser } from "@/lib/notifications/sendPush";
 import { captureExceptionAndLog } from "@/lib/shared/sentry";
 import { createAdminClient } from "@/lib/supabase/server";
 import { protectedProcedure, publicProcedure } from "../trpc";
 
 // Local development (never a production build). In dev we surface the OTP directly so login
 // works even when SMTP is misconfigured/unavailable; this stays off in any production deploy.
-const isLocalDevEnv = process.env.NODE_ENV !== "production" && !env.VERCEL;
+const isLocalDevEnv = env.NODE_ENV !== "production" && !env.VERCEL;
 const safeToSendBackOTP = !env.VERCEL && (env.AUTH_URL === "https://helperai.dev" || isLocalDevEnv);
 
 export const userRouter = {
@@ -287,6 +288,50 @@ export const userRouter = {
       .orderBy(desc(pushSubscriptions.createdAt));
 
     return { subscriptions };
+  }),
+
+  /**
+   * Sends a real push through the VAPID → push service → service worker path, to every device this
+   * employee has registered. The old Settings "Test" button called `new Notification()` in the page,
+   * which only proves the OS permission prompt works — it succeeded even with no VAPID keys, no
+   * subscription row and a broken service worker. This exercises the delivery path people rely on.
+   */
+  sendTestPush: protectedProcedure.mutation(async ({ ctx }) => {
+    if (!ctx.user) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+    if (!isWebPushConfigured()) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Web push is not configured on the server (VAPID keys missing).",
+      });
+    }
+
+    const results = await sendPushToUser(ctx.user.id, {
+      title: "Epicure Assist test notification",
+      body: "Push is working on this device.",
+      actionUrl: "/settings/notifications",
+    });
+
+    if (results.length === 0) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "No devices are registered for push. Turn Browser Push on from the device you want notified.",
+      });
+    }
+
+    const delivered = results.filter((r) => r.success).length;
+    const expired = results.filter((r) => r.expired).length;
+
+    if (delivered === 0) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: expired
+          ? `All ${results.length} registered device(s) had expired subscriptions and were removed. Re-enable Browser Push on this device.`
+          : `Push failed on all ${results.length} registered device(s).`,
+      });
+    }
+
+    return { delivered, attempted: results.length, expired };
   }),
 
   // Web notification history

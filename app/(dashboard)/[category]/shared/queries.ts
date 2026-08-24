@@ -1,5 +1,6 @@
 import { useParams } from "next/navigation";
 import { parseAsArrayOf, parseAsBoolean, parseAsInteger, parseAsString, parseAsStringEnum, useQueryStates } from "nuqs";
+import { LEAD_PRIORITY_ORDER } from "@/lib/leads/leadPriority";
 
 export const useConversationsListInput = () => {
   const params = useParams<{
@@ -26,6 +27,7 @@ export const useConversationsListInput = () => {
     isClassified: parseAsBoolean,
     isAssigned: parseAsBoolean,
     hasUnreadMessages: parseAsBoolean,
+    priority: parseAsArrayOf(parseAsStringEnum([...LEAD_PRIORITY_ORDER])),
   });
 
   // When "all" is selected, pass all statuses to show all conversations regardless of status
@@ -44,6 +46,7 @@ export const useConversationsListInput = () => {
     isClassified: searchParams.isClassified ?? undefined,
     isAssigned: searchParams.isAssigned ?? undefined,
     hasUnreadMessages: searchParams.hasUnreadMessages ?? undefined,
+    priority: searchParams.priority?.length ? searchParams.priority : undefined,
     displayUnreadBehavior: ["mine", "assigned"].includes(params.category),
   };
 

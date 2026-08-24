@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { leadCategoryKeys, type LeadCategoryKey, type LeadCategorySource } from "./leadCategory";
 
 /** Fixed taxonomy the model should prefer; it may instead propose a new label with confidence. */
 export const starterInboundCategoryKeys = [
@@ -27,11 +28,22 @@ export type InboundCategoryResolution =
 
 export type InboundTriage = {
   category: InboundCategoryResolution;
+  /** Priority. Set from the website form category when present, otherwise inferred by the model. */
   importance: "low" | "med" | "high";
   geography: string | null;
   summaryLine: string;
   reasoning?: string;
   matchedIssueGroupId?: number | null;
+  /** Set when the message resolved to one of the six lead categories, from either channel. */
+  leadCategoryKey?: LeadCategoryKey | null;
+  /** Category text as received, kept verbatim so new website dropdown options are visible. */
+  leadCategoryLabel?: string | null;
+  /** Which channel produced the category — the form states it, the model guesses it. */
+  leadCategorySource?: LeadCategorySource | null;
+  /** 1 for the form; the model's own confidence when inferred from a plain email. */
+  leadCategoryConfidence?: number | null;
+  /** Bypasses the bucket+importance routing table; used by the lead category map. */
+  routingRoleOverride?: LeadRoutingRole | null;
 };
 
 /** Core-only routing inboxes (set on team members → Settings → Team). */
@@ -95,6 +107,7 @@ export function effectiveInboundBucket(triage: InboundTriage): StarterInboundCat
 
 /**
  * Route to team members who have this inbox category on their profile (or any admin).
+ * - routingRoleOverride (website form category) wins outright
  * - Business + high → founder_sales (human, no auto-reply)
  * - Business + low/med → sales_digest (templated / AI-friendly)
  * - Vendor pitch → procurement_cto
@@ -103,6 +116,8 @@ export function effectiveInboundBucket(triage: InboundTriage): StarterInboundCat
  * - Generic / spam / unknown → general
  */
 export function routingTargetFromTriage(triage: InboundTriage): LeadRoutingRole {
+  if (triage.routingRoleOverride) return triage.routingRoleOverride;
+
   const bucket = effectiveInboundBucket(triage);
   const { importance } = triage;
 
@@ -131,57 +146,72 @@ export function assignedToAiFromTriage(triage: InboundTriage): boolean {
   return false;
 }
 
-const triageShared = z.object({
+/**
+ * Flat object, deliberately NOT a z.discriminatedUnion: a union compiles to a top-level `anyOf`,
+ * and the OpenAI tool-call schema must be `type: "object"`. Using a union here made every call
+ * fail with `schema must be a JSON Schema of 'type: "object"', got 'type: "None"'`, which is why
+ * no inbound message was ever triaged.
+ *
+ * `categorySource` picks which of the two field groups is meaningful; the other is null.
+ */
+export const inboundTriageAISchema = z.object({
+  categorySource: z
+    .enum(["starter", "proposed"])
+    .describe("Use 'starter' when a starter category fits; 'proposed' to name a new one"),
+  starterKey: z.enum(starterInboundCategoryKeys).nullish().describe("Required when categorySource is 'starter'"),
+  starterMatchConfidence: z.number().min(0).max(1).nullish(),
+  proposedKey: z.string().nullish().describe("snake_case stable key; required when categorySource is 'proposed'"),
+  proposedLabel: z.string().nullish().describe("Human-readable category name for a proposed category"),
+  proposedConfidence: z.number().min(0).max(1).nullish(),
   importance: z.enum(["low", "med", "high"]),
   geography: z.string().nullable(),
   summaryLine: z.string().max(400),
   reasoning: z.string(),
   matchedIssueGroupId: z.number().nullable(),
+  /**
+   * Which of the six lead categories this message is, when it is a lead at all. Null for vendor
+   * pitches, hiring, press, and spam. Drives priority and routing exactly as the website form
+   * dropdown does, so an emailed franchise enquiry is handled like a form-submitted one.
+   */
+  leadCategoryKey: z.enum(leadCategoryKeys).nullable(),
+  leadCategoryConfidence: z.number().min(0).max(1).describe("0-1 confidence in leadCategoryKey; 0 when null"),
 });
-
-export const inboundTriageAISchema = z.discriminatedUnion("categorySource", [
-  triageShared.extend({
-    categorySource: z.literal("starter"),
-    starterKey: z.enum(starterInboundCategoryKeys),
-    starterMatchConfidence: z.number().min(0).max(1),
-  }),
-  triageShared.extend({
-    categorySource: z.literal("proposed"),
-    proposedKey: z.string().min(1).describe("snake_case stable key for the new category"),
-    proposedLabel: z.string().min(1).describe("Human-readable category name"),
-    proposedConfidence: z.number().min(0).max(1),
-  }),
-]);
 
 export type InboundTriageAIResult = z.infer<typeof inboundTriageAISchema>;
 
 export function inboundTriageFromAi(ai: InboundTriageAIResult): InboundTriage {
-  if (ai.categorySource === "starter") {
+  /** Models routinely omit fields they consider inapplicable rather than sending explicit nulls. */
+  const shared = {
+    importance: ai.importance,
+    geography: ai.geography ?? null,
+    summaryLine: ai.summaryLine ?? "",
+    reasoning: ai.reasoning ?? undefined,
+    matchedIssueGroupId: ai.matchedIssueGroupId ?? null,
+    leadCategoryKey: ai.leadCategoryKey ?? null,
+    leadCategoryConfidence: ai.leadCategoryConfidence ?? 0,
+    leadCategorySource: ai.leadCategoryKey ? ("ai_inferred" as const) : null,
+  };
+
+  if (ai.categorySource === "proposed" && ai.proposedKey && ai.proposedLabel) {
     return {
       category: {
-        source: "starter",
-        key: ai.starterKey,
-        confidence: ai.starterMatchConfidence,
+        source: "proposed",
+        key: ai.proposedKey,
+        label: ai.proposedLabel,
+        confidence: ai.proposedConfidence ?? 0,
       },
-      importance: ai.importance,
-      geography: ai.geography,
-      summaryLine: ai.summaryLine,
-      reasoning: ai.reasoning,
-      matchedIssueGroupId: ai.matchedIssueGroupId,
+      ...shared,
     };
   }
 
   return {
     category: {
-      source: "proposed",
-      key: ai.proposedKey,
-      label: ai.proposedLabel,
-      confidence: ai.proposedConfidence,
+      source: "starter",
+      // The model said "starter" but gave no key: treat as low-signal rather than guessing a
+      // bucket, which keeps it off the AI-reply path and routes it to the general queue.
+      key: ai.starterKey ?? "generic_info_spam",
+      confidence: ai.starterMatchConfidence ?? 0,
     },
-    importance: ai.importance,
-    geography: ai.geography,
-    summaryLine: ai.summaryLine,
-    reasoning: ai.reasoning,
-    matchedIssueGroupId: ai.matchedIssueGroupId,
+    ...shared,
   };
 }

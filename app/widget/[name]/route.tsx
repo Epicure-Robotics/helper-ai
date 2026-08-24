@@ -27,7 +27,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
       },
     });
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error(`Error reading file ${name}:`, error);
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

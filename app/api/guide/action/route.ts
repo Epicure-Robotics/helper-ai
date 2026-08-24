@@ -221,7 +221,6 @@ export const POST = withWidgetAuth(async ({ request }, { session, mailbox }) => 
           captureExceptionAndLog(error);
         },
         experimental_repairToolCall: async ({ toolCall, tools, error, messages, system }) => {
-          // eslint-disable-next-line no-console
           console.log("Fixing tool call: ", error);
 
           const result = await generateText({

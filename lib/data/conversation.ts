@@ -137,8 +137,10 @@ export const updateConversation = async (
 
     // Keep Gmail inbox in sync with Helper close actions.
     // Skip if there's a pending outgoing email - postEmailToGmail will archive after sending.
-    // eslint-disable-next-line no-console
-    console.log(`[updateConversation] Closing conversation ${updatedConversation.id}, provider: ${updatedConversation.conversationProvider}`);
+
+    console.log(
+      `[updateConversation] Closing conversation ${updatedConversation.id}, provider: ${updatedConversation.conversationProvider}`,
+    );
     if (updatedConversation.conversationProvider === "gmail") {
       const hasPendingEmail = await tx.query.conversationMessages.findFirst({
         columns: { id: true },
@@ -148,8 +150,10 @@ export const updateConversation = async (
           isNull(conversationMessages.deletedAt),
         ),
       });
-      // eslint-disable-next-line no-console
-      console.log(`[updateConversation] hasPendingEmail: ${!!hasPendingEmail}, will trigger archive: ${!hasPendingEmail}`);
+
+      console.log(
+        `[updateConversation] hasPendingEmail: ${!!hasPendingEmail}, will trigger archive: ${!hasPendingEmail}`,
+      );
       if (!hasPendingEmail) {
         await triggerEvent("gmail/archive-thread", { conversationId: updatedConversation.id });
       }
@@ -296,6 +300,9 @@ export const serializeConversation = (
     assignedToAI: conversation.assignedToAI,
     issueGroupId: conversation.issueGroupId,
     issueSubgroupId: conversation.issueSubgroupId,
+    /** Lead priority from triage. Deliberately not the whole blob — `reasoning` is internal. */
+    leadPriority: conversation.inboundTriage?.importance ?? null,
+    leadCategoryKey: conversation.inboundTriage?.leadCategoryKey ?? null,
     platformCustomer: platformCustomer
       ? {
           ...platformCustomer,

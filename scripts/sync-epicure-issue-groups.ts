@@ -1,6 +1,6 @@
 /**
- * Updates existing issue_groups + linked saved_replies to match lib/epicure/issueGroupSpecs.ts.
- * Does not insert new rows (use seed with EPICURE_SEED for first-time setup).
+ * Upserts issue_groups + linked saved_replies to match lib/epicure/issueGroupSpecs.ts.
+ * Missing groups (e.g. the website form categories) are created with their saved reply.
  *
  * Uses Supabase Postgres only (no full app env)—set POSTGRES_URL or DATABASE_URL for the target project, or local Supabase port.
  *
@@ -9,25 +9,55 @@
 
 import { eq } from "drizzle-orm";
 import { issueGroups, savedReplies } from "@/db/schema";
-import { EPICURE_ISSUE_GROUP_SPECS } from "@/lib/epicure/issueGroupSpecs";
+import { ALL_EPICURE_ISSUE_GROUP_SPECS } from "@/lib/epicure/issueGroupSpecs";
 import { scriptDb, scriptPool } from "./lib/dbOnly";
 
 async function main() {
-  let updatedGroups = 0;
-  let updatedTemplates = 0;
-  const missing: string[] = [];
+  const mailbox = await scriptDb.query.mailboxes.findFirst({
+    columns: { id: true },
+    orderBy: (m, { asc }) => [asc(m.id)],
+  });
 
-  for (const spec of EPICURE_ISSUE_GROUP_SPECS) {
+  if (!mailbox) {
+    console.error("No mailbox row found; run the db seed first.");
+    process.exit(1);
+  }
+
+  let updatedGroups = 0;
+  let createdGroups = 0;
+  let updatedTemplates = 0;
+
+  for (const spec of ALL_EPICURE_ISSUE_GROUP_SPECS) {
     const group = await scriptDb.query.issueGroups.findFirst({
       where: eq(issueGroups.title, spec.title),
       columns: { id: true, defaultSavedReplyId: true },
     });
 
     if (!group) {
-      missing.push(spec.title);
+      const [savedReply] = await scriptDb
+        .insert(savedReplies)
+        .values({
+          name: spec.templateName,
+          content: spec.templateBody,
+          templateType: "rich_text",
+          unused_mailboxId: mailbox.id,
+          isActive: true,
+        })
+        .returning({ id: savedReplies.id });
+
+      await scriptDb.insert(issueGroups).values({
+        title: spec.title,
+        description: spec.description,
+        color: spec.color,
+        assignees: [],
+        autoResponseEnabled: spec.autoResponseEnabled ? 1 : 0,
+        defaultSavedReplyId: savedReply?.id ?? null,
+      });
+      createdGroups++;
       continue;
     }
 
+    // Existing rows keep their autoResponseEnabled — that switch is the team's to own, not the seed's.
     await scriptDb
       .update(issueGroups)
       .set({
@@ -51,12 +81,9 @@ async function main() {
     }
   }
 
-  console.log(`Updated ${updatedGroups} issue groups and ${updatedTemplates} saved-reply templates.`);
-  if (missing.length > 0) {
-    console.warn(
-      `Skipped (no row with matching title)—create in dashboard or run db seed with EPICURE_SEED: ${missing.join(", ")}`,
-    );
-  }
+  console.log(
+    `Created ${createdGroups} issue groups; updated ${updatedGroups} groups and ${updatedTemplates} saved-reply templates.`,
+  );
 }
 
 main()

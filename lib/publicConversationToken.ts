@@ -10,10 +10,7 @@ export function generatePublicConversationToken(conversationId: number): string 
   const data = `${conversationId}:${timestamp}`;
 
   // Use SUPABASE_SERVICE_ROLE_KEY as the signing key
-  const signature = crypto
-    .createHmac("sha256", env.SUPABASE_SERVICE_ROLE_KEY)
-    .update(data)
-    .digest("base64url");
+  const signature = crypto.createHmac("sha256", env.SUPABASE_SERVICE_ROLE_KEY).update(data).digest("base64url");
 
   return `${conversationId}.${timestamp}.${signature}`;
 }
@@ -55,7 +52,7 @@ export function verifyPublicConversationToken(token: string): number | null {
     }
 
     return conversationId;
-  } catch (error) {
+  } catch {
     return null;
   }
 }

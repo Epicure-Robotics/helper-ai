@@ -136,6 +136,7 @@ export const websitePagesPrompt = (
     markdown: string;
     similarity: number;
   }[],
+  maxCharsPerPage = 4500,
 ) => {
   const pagesText = pages
     .map(
@@ -143,7 +144,7 @@ export const websitePagesPrompt = (
 Title: ${page.pageTitle}
 URL: ${page.url}
 Content:
-${page.markdown.length > 4500 ? `${page.markdown.slice(0, 4500)}…` : page.markdown}
+${page.markdown.length > maxCharsPerPage ? `${page.markdown.slice(0, maxCharsPerPage)}…` : page.markdown}
 --- Page End ---`,
     )
     .join("\n\n");

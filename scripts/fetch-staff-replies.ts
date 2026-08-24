@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import * as readline from "readline";
 import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -40,7 +39,7 @@ const getStaffMembers = async (fortyEightHoursAgo: Date) => {
 /**
  * Prompt user to select a staff member
  */
-const selectStaffMember = async (staffMembers: Array<{ userId: string | null; name: string; replyCount: number }>) => {
+const selectStaffMember = (staffMembers: { userId: string | null; name: string; replyCount: number }[]) => {
   return new Promise<string | null>((resolve) => {
     const rl = readline.createInterface({
       input: process.stdin,
@@ -63,7 +62,7 @@ const selectStaffMember = async (staffMembers: Array<{ userId: string | null; na
       } else if (selection === 0) {
         resolve(null); // null means all staff
       } else {
-        resolve(staffMembers[selection - 1].userId);
+        resolve(staffMembers[selection - 1]?.userId ?? null);
       }
     });
   });
@@ -117,8 +116,7 @@ export const fetchStaffReplies = async (selectedUserId?: string | null) => {
     console.log("=".repeat(80));
 
     // Display the results
-    for (let index = 0; index < staffReplies.length; index++) {
-      const reply = staffReplies[index];
+    for (const [index, reply] of staffReplies.entries()) {
       const staffName = await getStaffName(reply.userId);
 
       console.log(`\n📧 Reply #${index + 1}`);

@@ -38,7 +38,13 @@ const statusIcons = {
   ignored: ArrowLeftFromLine,
 };
 
-export const EventItem = ({ event, initialExpanded = false }: { event: ConversationEvent; initialExpanded?: boolean }) => {
+export const EventItem = ({
+  event,
+  initialExpanded = false,
+}: {
+  event: ConversationEvent;
+  initialExpanded?: boolean;
+}) => {
   const [detailsExpanded, setDetailsExpanded] = useState(initialExpanded);
 
   const { data: orgMembers, isLoading: isLoadingMembers, error: membersError } = useMembers();

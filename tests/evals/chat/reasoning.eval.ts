@@ -78,8 +78,7 @@ evalite("Reasoning - Correct refund information", {
               },
               required: ["email"],
             },
-            executeReturn:
-              "Last order of the user is an Epicure calibration kit, 20 days ago, paid with a credit card",
+            executeReturn: "Last order of the user is an Epicure calibration kit, 20 days ago, paid with a credit card",
           },
         },
       }),

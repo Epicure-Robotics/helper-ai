@@ -301,7 +301,7 @@ const TeamMemberRow = ({ member, isAdmin }: TeamMemberRowProps) => {
         {isAdmin && !isMemberAdmin ? (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal">
+              <Button variant="outlined" size="sm" className="w-full justify-start text-left font-normal">
                 {routingRolesLocal.length > 0
                   ? `${routingRolesLocal.length} categor${routingRolesLocal.length === 1 ? "y" : "ies"}`
                   : "Choose categories…"}
@@ -327,7 +327,12 @@ const TeamMemberRow = ({ member, isAdmin }: TeamMemberRowProps) => {
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-          <Switch checked={emailOnAssignment} onCheckedChange={setEmailOnAssignment} disabled={!isAdmin} />
+          <Switch
+            aria-label={`Email ${member.email ?? "this member"} on assignment`}
+            checked={emailOnAssignment}
+            onCheckedChange={setEmailOnAssignment}
+            disabled={!isAdmin}
+          />
           <SavingIndicator state={emailOnAssignmentSaving.state} />
         </div>
       </TableCell>

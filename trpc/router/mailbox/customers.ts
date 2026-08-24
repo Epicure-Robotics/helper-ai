@@ -3,8 +3,8 @@ import { and, asc, desc, eq, ilike } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { platformCustomers } from "@/db/schema";
-import { determineVipStatus, findOrCreatePlatformCustomerByEmail } from "@/lib/data/platformCustomer";
 import { getMailbox } from "@/lib/data/mailbox";
+import { determineVipStatus, findOrCreatePlatformCustomerByEmail } from "@/lib/data/platformCustomer";
 import { mailboxProcedure } from "./procedure";
 
 export const customersRouter = {
@@ -84,7 +84,7 @@ export const customersRouter = {
     .mutation(async ({ input }) => {
       const { id, name, value } = input;
       const updateData: Record<string, unknown> = {};
-      
+
       if (name !== undefined) updateData.name = name;
       if (value !== undefined) updateData.value = value !== null ? value.toString() : null;
 

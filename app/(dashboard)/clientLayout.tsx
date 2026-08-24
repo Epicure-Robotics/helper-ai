@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 import { create } from "zustand";
-import { useRealtimeNotifications } from "@/lib/notifications/useRealtimeNotifications";
 import { registerServiceWorker } from "@/lib/notifications/sw-register";
+import { usePushSubscriptionSync } from "@/lib/notifications/usePushSubscriptionSync";
+import { useRealtimeNotifications } from "@/lib/notifications/useRealtimeNotifications";
 
 export const useShowChatWidget = create<{
   showChatWidget: boolean;
@@ -18,6 +19,9 @@ export default function InboxClientLayout({ children }: { children: React.ReactN
 
   // Set up real-time notifications
   useRealtimeNotifications();
+
+  // Re-register this device's push subscription if the browser rotated it since last visit
+  usePushSubscriptionSync();
 
   // Register service worker for push notifications
   useEffect(() => {

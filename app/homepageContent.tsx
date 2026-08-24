@@ -194,7 +194,11 @@ export const HomepageContent = ({ mailboxName }: { mailboxName: string }) => {
   const [chatConversationSlug, setChatConversationSlug] = useState<string | null>(null);
   const [instantReply, setInstantReply] = useState<{ text: string; assistantMessageId: string } | null>(null);
   const [isPreparingChat, setIsPreparingChat] = useState(false);
-  const { data: sampleQuestions, isLoading, error } = api.sampleQuestions.useQuery(undefined, {
+  const {
+    data: sampleQuestions,
+    isLoading,
+    error,
+  } = api.sampleQuestions.useQuery(undefined, {
     staleTime: 6 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     retry: 2,

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /* eslint-disable no-restricted-properties */
 import { Vercel } from "@vercel/sdk";
 

@@ -1,6 +1,5 @@
 /// <reference types="@vitest/browser/context" />
 
-/* eslint-disable no-console */
 import type { TestProject } from "vitest/node";
 import { setupDockerTestDb } from "./setupDatabase";
 

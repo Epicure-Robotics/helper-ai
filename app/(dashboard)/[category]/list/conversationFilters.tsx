@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useDebouncedCallback } from "@/components/useDebouncedCallback";
+import { type LeadPriorityValue } from "@/lib/leads/leadPriority";
 import { useConversationsListInput } from "../shared/queries";
 import { AssigneeFilter } from "./filters/assigneeFilter";
 import { CustomerFilter } from "./filters/customerFilter";
 import { DateFilter } from "./filters/dateFilter";
 import { IssueGroupFilter } from "./filters/issueGroupFilter";
+import { PriorityFilter } from "./filters/priorityFilter";
 import { ResponderFilter } from "./filters/responderFilter";
 import { UnreadMessagesFilter } from "./filters/unreadMessagesFilter";
 
@@ -19,6 +21,7 @@ interface FilterValues {
   isClassified: boolean | undefined;
   isAssigned: boolean | undefined;
   hasUnreadMessages: boolean | undefined;
+  priority: LeadPriorityValue[];
 }
 
 interface ConversationFiltersProps {
@@ -41,6 +44,7 @@ export const useConversationFilters = () => {
     isClassified: searchParams.isClassified ?? undefined,
     isAssigned: searchParams.isAssigned ?? undefined,
     hasUnreadMessages: searchParams.hasUnreadMessages ?? undefined,
+    priority: searchParams.priority ?? [],
   });
 
   const activeFilterCount = useMemo(() => {
@@ -52,6 +56,7 @@ export const useConversationFilters = () => {
     if (filterValues.issueGroupId !== null || filterValues.isClassified !== undefined) count++;
     if (filterValues.isAssigned !== undefined) count++;
     if (filterValues.hasUnreadMessages !== undefined) count++;
+    if (filterValues.priority.length > 0) count++;
     return count;
   }, [filterValues]);
 
@@ -70,6 +75,7 @@ export const useConversationFilters = () => {
       isClassified: searchParams.isClassified ?? undefined,
       isAssigned: searchParams.isAssigned ?? undefined,
       hasUnreadMessages: searchParams.hasUnreadMessages ?? undefined,
+      priority: searchParams.priority ?? [],
     });
   }, [searchParams]);
 
@@ -89,6 +95,7 @@ export const useConversationFilters = () => {
       isClassified: null,
       isAssigned: null,
       hasUnreadMessages: null,
+      priority: null,
     };
     setSearchParams((prev) => ({ ...prev, ...clearedFilters }));
   };
@@ -153,6 +160,7 @@ export const ConversationFilters = ({
         selectedCustomers={filterValues.customer}
         onChange={(customers) => onUpdateFilter({ customer: customers })}
       />
+      <PriorityFilter priority={filterValues.priority} onChange={(priority) => onUpdateFilter({ priority })} />
       <IssueGroupFilter
         issueGroupId={filterValues.issueGroupId}
         isClassified={filterValues.isClassified}

@@ -25,6 +25,7 @@ type CommonIssueEditFormProps = {
   color?: string | null;
   assignees: string[];
   customPrompt?: string | null;
+  standardAnswer?: string | null;
   autoResponseEnabled?: boolean;
   defaultSavedReplyId?: number | null;
   onSubmit: () => void;
@@ -34,6 +35,7 @@ type CommonIssueEditFormProps = {
   onColorChange?: (color: string) => void;
   onAssigneesChange?: (assignees: string[]) => void;
   onCustomPromptChange?: (prompt: string) => void;
+  onStandardAnswerChange?: (answer: string) => void;
   onAutoResponseEnabledChange?: (enabled: boolean) => void;
   onDefaultSavedReplyIdChange?: (id: number | null) => void;
   isLoading: boolean;
@@ -46,6 +48,7 @@ const CommonIssueEditForm = ({
   color,
   assignees,
   customPrompt,
+  standardAnswer,
   autoResponseEnabled,
   defaultSavedReplyId,
   isLoading,
@@ -56,6 +59,7 @@ const CommonIssueEditForm = ({
   onColorChange,
   onAssigneesChange,
   onCustomPromptChange,
+  onStandardAnswerChange,
   onAutoResponseEnabledChange,
   onDefaultSavedReplyIdChange,
 }: CommonIssueEditFormProps) => {
@@ -113,6 +117,22 @@ const CommonIssueEditForm = ({
       {(autoResponseEnabled ?? false) && (
         <div className="ml-8 border-l-2 pl-4 space-y-2 animate-in fade-in slide-in-from-top-2">
           <Label className="flex justify-between">
+            <span>Standard answer (Optional)</span>
+          </Label>
+          <Textarea
+            value={standardAnswer || ""}
+            onChange={(e) => onStandardAnswerChange?.(e.target.value)}
+            placeholder="e.g. Lead time is about 3 months from order. Not onboarding new franchises until Q1."
+            className="mt-2 text-sm"
+            rows={4}
+          />
+          <p className="text-xs text-muted-foreground">
+            Your current position for this category. When filled in, replies are written from this text only — the AI
+            rephrases it to fit each email and will not state anything you haven&apos;t said here. Leave empty to let
+            the AI answer from the knowledge base.
+          </p>
+
+          <Label className="mt-4 flex justify-between">
             <span>Custom AI Prompt (Optional)</span>
           </Label>
           <Textarea
@@ -281,6 +301,7 @@ const CommonIssuesSetting = () => {
   const [newIssueColor, setNewIssueColor] = useState<string | null>(null);
   const [newIssueAssignees, setNewIssueAssignees] = useState<string[]>([]);
   const [newIssueCustomPrompt, setNewIssueCustomPrompt] = useState<string | null>(null);
+  const [newIssueStandardAnswer, setNewIssueStandardAnswer] = useState<string | null>(null);
   const [newIssueAutoResponseEnabled, setNewIssueAutoResponseEnabled] = useState(false);
   const [newIssueDefaultSavedReplyId, setNewIssueDefaultSavedReplyId] = useState<number | null>(null);
   const [showNewIssueForm, setShowNewIssueForm] = useState(false);
@@ -292,6 +313,7 @@ const CommonIssuesSetting = () => {
     color: string | null;
     assignees: string[];
     customPrompt: string | null;
+    standardAnswer: string | null;
     autoResponseEnabled: boolean;
     defaultSavedReplyId: number | null;
   } | null>(null);
@@ -386,6 +408,7 @@ const CommonIssuesSetting = () => {
       title: newIssueTitle.trim(),
       description: newIssueDescription.trim() || undefined,
       customPrompt: newIssueCustomPrompt,
+      standardAnswer: newIssueStandardAnswer,
       autoResponseEnabled: newIssueAutoResponseEnabled,
       defaultSavedReplyId: newIssueDefaultSavedReplyId,
     });
@@ -411,6 +434,7 @@ const CommonIssuesSetting = () => {
       description: editingIssue.description.trim() || undefined,
       color: editingIssue.color || undefined,
       customPrompt: editingIssue.customPrompt || null,
+      standardAnswer: editingIssue.standardAnswer || null,
       autoResponseEnabled: editingIssue.autoResponseEnabled,
       defaultSavedReplyId: editingIssue.defaultSavedReplyId,
     });
@@ -468,6 +492,7 @@ const CommonIssuesSetting = () => {
                     color={editingIssue.color}
                     assignees={editingIssue.assignees}
                     customPrompt={editingIssue.customPrompt}
+                    standardAnswer={editingIssue.standardAnswer}
                     autoResponseEnabled={editingIssue.autoResponseEnabled}
                     defaultSavedReplyId={editingIssue.defaultSavedReplyId}
                     onTitleChange={(title) => setEditingIssue({ ...editingIssue, title })}
@@ -475,6 +500,7 @@ const CommonIssuesSetting = () => {
                     onColorChange={(color) => setEditingIssue({ ...editingIssue, color })}
                     onAssigneesChange={(assignees) => setEditingIssue({ ...editingIssue, assignees })}
                     onCustomPromptChange={(customPrompt) => setEditingIssue({ ...editingIssue, customPrompt })}
+                    onStandardAnswerChange={(standardAnswer) => setEditingIssue({ ...editingIssue, standardAnswer })}
                     onAutoResponseEnabledChange={(autoResponseEnabled) =>
                       setEditingIssue({ ...editingIssue, autoResponseEnabled })
                     }
@@ -515,6 +541,7 @@ const CommonIssuesSetting = () => {
                             color: group.color || null,
                             assignees: group.assignees!,
                             customPrompt: group.customPrompt || null,
+                            standardAnswer: group.standardAnswer || null,
                             autoResponseEnabled: group.autoResponseEnabled === 1,
                             defaultSavedReplyId: group.defaultSavedReplyId || null,
                           })
@@ -550,6 +577,7 @@ const CommonIssuesSetting = () => {
             color={newIssueColor}
             assignees={newIssueAssignees}
             customPrompt={newIssueCustomPrompt}
+            standardAnswer={newIssueStandardAnswer}
             autoResponseEnabled={newIssueAutoResponseEnabled}
             defaultSavedReplyId={newIssueDefaultSavedReplyId}
             onTitleChange={setNewIssueTitle}
@@ -557,6 +585,7 @@ const CommonIssuesSetting = () => {
             onColorChange={setNewIssueColor}
             onAssigneesChange={setNewIssueAssignees}
             onCustomPromptChange={setNewIssueCustomPrompt}
+            onStandardAnswerChange={setNewIssueStandardAnswer}
             onAutoResponseEnabledChange={setNewIssueAutoResponseEnabled}
             onDefaultSavedReplyIdChange={setNewIssueDefaultSavedReplyId}
             onSubmit={handleCreateIssue}

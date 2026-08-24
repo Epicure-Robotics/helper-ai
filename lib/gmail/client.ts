@@ -105,7 +105,6 @@ export const getThread = async (client: GmailClient, threadId: string) => {
 };
 
 export const archiveGmailThread = async (client: GmailClient, threadId: string) => {
-  // eslint-disable-next-line no-console
   console.log(`[archiveGmailThread] Calling Gmail API to remove INBOX label from thread ${threadId}`);
   const result = await client.users.threads.modify({
     userId: "me",
@@ -114,7 +113,7 @@ export const archiveGmailThread = async (client: GmailClient, threadId: string) 
       removeLabelIds: ["INBOX"],
     },
   });
-  // eslint-disable-next-line no-console
+
   console.log(`[archiveGmailThread] Gmail API response status: ${result.status} for thread ${threadId}`);
   return result;
 };

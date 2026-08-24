@@ -73,23 +73,28 @@ export const messagesRouter = {
         responseToId: z.number().nullable(),
       }),
     )
-    .mutation(async ({ input: { message, htmlBody, fileSlugs, to, cc, bcc, shouldAutoAssign, shouldClose, responseToId }, ctx }) => {
-      const id = await createReply({
-        conversationId: ctx.conversation.id,
-        user: ctx.user,
-        message,
-        htmlBody,
-        fileSlugs,
-        to,
-        cc,
-        bcc,
-        shouldAutoAssign,
-        close: shouldClose,
-        responseToId,
-        role: "staff",
-      });
-      return { id };
-    }),
+    .mutation(
+      async ({
+        input: { message, htmlBody, fileSlugs, to, cc, bcc, shouldAutoAssign, shouldClose, responseToId },
+        ctx,
+      }) => {
+        const id = await createReply({
+          conversationId: ctx.conversation.id,
+          user: ctx.user,
+          message,
+          htmlBody,
+          fileSlugs,
+          to,
+          cc,
+          bcc,
+          shouldAutoAssign,
+          close: shouldClose,
+          responseToId,
+          role: "staff",
+        });
+        return { id };
+      },
+    ),
   flagAsBad: conversationProcedure
     .input(
       z.object({
@@ -145,7 +150,7 @@ export const messagesRouter = {
       }
 
       let forwardBody = "";
-      
+
       if (includeFullThread) {
         // Forward entire conversation thread (excluding AI assistant messages)
         const messages = await db.query.conversationMessages.findMany({
@@ -235,7 +240,7 @@ export const messagesRouter = {
       // Create raw email using MailComposer
       const mailComposer = new MailComposer({
         from: gmailSupportEmail.email,
-        to: to,
+        to,
         subject: `Fwd: ${ctx.conversation.subject || "(no subject)"}`,
         html: forwardBody,
         textEncoding: "base64",
@@ -250,7 +255,7 @@ export const messagesRouter = {
 
       // Send via Gmail API
       const gmailService = getGmailService(gmailSupportEmail);
-      
+
       try {
         await sendGmailEmail(gmailService, rawEmail, null);
         return { success: true };

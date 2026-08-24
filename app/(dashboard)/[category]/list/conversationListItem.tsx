@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMembers } from "@/components/useMembers";
+import { isLeadPriority, LEAD_PRIORITY_BADGE_STYLES, LEAD_PRIORITY_LABELS } from "@/lib/leads/leadPriority";
 import { createSearchSnippet } from "@/lib/search/searchSnippet";
 import { cn } from "@/lib/utils";
 import { api } from "@/trpc/react";
@@ -94,6 +95,8 @@ export const ConversationListItemContent = ({ conversation, emailPrefix }: Conve
   const searchTerms = searchParams.search ? searchParams.search.split(/\s+/).filter(Boolean) : [];
 
   const issueGroup = issueGroups?.find((g) => g.id === conversation.issueGroupId);
+  const priority = isLeadPriority(conversation.leadPriority) ? conversation.leadPriority : null;
+  const priorityStyle = priority ? LEAD_PRIORITY_BADGE_STYLES[priority] : null;
 
   let highlightedSubject = escape(conversation.subject);
   let bodyText = conversation.matchedMessageText ?? conversation.recentMessageText ?? "";
@@ -152,6 +155,11 @@ export const ConversationListItemContent = ({ conversation, emailPrefix }: Conve
 
       {/* Middle: Subject + preview + badges on same line */}
       <div className="flex-1 min-w-0 flex items-center gap-2">
+        {priority && priorityStyle && (
+          <Badge variant="gray" className={cn("text-[10px] shrink-0 uppercase", priorityStyle)}>
+            {LEAD_PRIORITY_LABELS[priority]}
+          </Badge>
+        )}
         {issueGroup && (
           <Badge
             variant="gray"

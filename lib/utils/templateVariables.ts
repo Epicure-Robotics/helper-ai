@@ -85,7 +85,7 @@ function convertPlainTextToHtml(text: string): string {
   if (!text) return "";
 
   // First, convert any markdown-style formatting to HTML
-  let processed = convertMarkdownToHtml(text);
+  const processed = convertMarkdownToHtml(text);
 
   // Split into paragraphs (double newlines)
   const paragraphs = processed.split(/\n\n+/);
@@ -123,9 +123,7 @@ export function replaceTemplateVariables(template: string, values: Record<string
 
     // Only apply full HTML conversion for multi-line content
     // Single-line values (like names) should remain inline
-    const htmlValue = cleanValue.includes("\n")
-      ? convertPlainTextToHtml(cleanValue)
-      : escapeHtml(cleanValue);
+    const htmlValue = cleanValue.includes("\n") ? convertPlainTextToHtml(cleanValue) : escapeHtml(cleanValue);
 
     result = result.replace(regex, htmlValue);
   }

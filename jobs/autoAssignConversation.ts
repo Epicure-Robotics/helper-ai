@@ -11,6 +11,7 @@ import {
   type UserWithMailboxAccessData,
 } from "@/lib/data/user";
 import { routingTargetFromTriage, type InboundTriage } from "@/lib/leads/inboundTriage";
+import { captureExceptionAndLog } from "@/lib/shared/sentry";
 import { triggerEvent } from "./trigger";
 import { assertDefinedOrRaiseNonRetriableError } from "./utils";
 
@@ -30,7 +31,19 @@ const pickMemberByInboundTriage = async (
   const candidates = assignableMembers.filter((m) => memberMatchesInboundTarget(m, target));
 
   if (candidates.length === 0) {
-    console.log(`[Auto-Assign] No members for routing target ${target} (triage); admins match all categories.`);
+    /**
+     * Nobody holds this routing role, so the lead is about to fall through to round-robin and be
+     * assigned like ordinary mail. That is worth knowing about for a high-priority lead — it means
+     * the priority map is configured but not staffed (Settings → Team).
+     */
+    const message = `No team member holds routing role "${target}" — falling back to round-robin. Assign it in Settings → Team.`;
+    if (triage.importance === "high") {
+      captureExceptionAndLog(new Error(`[Auto-Assign] ${message}`), {
+        extra: { target, importance: triage.importance, leadCategoryKey: triage.leadCategoryKey ?? null },
+      });
+    } else {
+      console.warn(`[Auto-Assign] ${message}`);
+    }
     return { member: null, source: `no_routing_${target}` };
   }
 
@@ -166,19 +179,24 @@ const getPreviousEmailConversationAssignee = async (
 export const autoAssignConversation = async ({ conversationId }: { conversationId: number }) => {
   console.log(`[Auto-Assign] 🎯 Starting auto-assign for conversation ${conversationId}`);
 
-  const conversation = assertDefinedOrRaiseNonRetriableError(
-    await db.query.conversations.findFirst({
-      where: eq(conversations.id, conversationId),
-      with: {
-        messages: {
-          columns: {
-            role: true,
-            cleanedUpText: true,
-          },
+  const conversation = await db.query.conversations.findFirst({
+    where: eq(conversations.id, conversationId),
+    with: {
+      messages: {
+        columns: {
+          role: true,
+          cleanedUpText: true,
         },
       },
-    }),
-  );
+    },
+  });
+
+  // A conversation can be deleted between this job being queued and it running. That is an ordinary
+  // race, not a failure, so skip like `generateBackgroundDraft` does instead of recording an error.
+  if (!conversation) {
+    console.log(`[Auto-Assign] Conversation ${conversationId} no longer exists, skipping`);
+    return { message: "Skipped: conversation no longer exists" };
+  }
 
   console.log(
     `[Auto-Assign] Conversation details - ID: ${conversation.id}, IssueGroupId: ${conversation.issueGroupId ?? "none"}, Subject: ${conversation.subject}`,

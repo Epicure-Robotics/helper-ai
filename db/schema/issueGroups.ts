@@ -17,6 +17,11 @@ export const issueGroups = pgTable(
     lastAssignedIndex: integer().default(0),
     color: text(),
     customPrompt: text(),
+    /**
+     * Founder-written answer for this category. When set, automated replies are built from this
+     * text instead of the AI answering from the knowledge base; empty falls back to the AI.
+     */
+    standardAnswer: text("standard_answer"),
     autoResponseEnabled: integer().default(0).notNull(),
     defaultSavedReplyId: bigint({ mode: "number" }),
   },

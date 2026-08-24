@@ -31,6 +31,10 @@ export const searchSchema = z.object({
     .optional()
     .describe("Anonymous session ID for identifying anonymous user conversations"),
   isVip: z.boolean().optional().describe("Filter by VIP customers"),
+  priority: z
+    .array(z.enum(["high", "med", "low"]))
+    .optional()
+    .describe("Filter leads by triage priority"),
   minValueDollars: z.number().optional().describe("Filter by customers with a minimum value"),
   maxValueDollars: z.number().optional().describe("Filter by customers with a maximum value"),
   isPrompt: z.boolean().optional().describe("Filter by tickets which were created from a fixed prompt"),

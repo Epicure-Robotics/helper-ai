@@ -7,7 +7,7 @@ import SuperJSON from "superjson";
  */
 const getStaleTime = (queryKey: readonly unknown[]): number => {
   const key = JSON.stringify(queryKey);
-  
+
   // Very static data - changes rarely, can cache for 15 minutes
   if (
     key.includes('"user"') ||
@@ -17,7 +17,7 @@ const getStaleTime = (queryKey: readonly unknown[]): number => {
   ) {
     return 15 * 60 * 1000; // 15 minutes
   }
-  
+
   // Mostly static data - changes occasionally, cache for 10 minutes
   if (
     key.includes('"savedReplies"') ||
@@ -27,16 +27,12 @@ const getStaleTime = (queryKey: readonly unknown[]): number => {
   ) {
     return 10 * 60 * 1000; // 10 minutes
   }
-  
+
   // Rarely changing data - cache for 5 minutes
-  if (
-    key.includes('"members"') ||
-    key.includes('"issueGroups"') ||
-    key.includes('"customers"')
-  ) {
+  if (key.includes('"members"') || key.includes('"issueGroups"') || key.includes('"customers"')) {
     return 5 * 60 * 1000; // 5 minutes
   }
-  
+
   // Dynamic data - shorter cache for conversations, counts, messages
   // Default 30 seconds for conversation lists, counts, and messages
   return 30 * 1000; // 30 seconds

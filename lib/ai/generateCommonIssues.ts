@@ -19,6 +19,20 @@ const commonIssuesGenerationSchema = z.object({
 
 type CommonIssuesGeneration = z.infer<typeof commonIssuesGenerationSchema>;
 
+/**
+ * Per-field caps. Only the gist of each thread is needed to cluster 50 of them into 3-7 categories,
+ * and newsletters/system mail in a real inbox run to tens of thousands of characters each. Without
+ * these the prompt reached ~135k tokens and every call died against the 200k/min OpenAI token limit.
+ */
+const SUBJECT_CHARS = 200;
+const MESSAGE_CHARS = 600;
+
+const truncate = (text: string | null | undefined, max: number): string => {
+  const clean = text?.trim();
+  if (!clean) return "";
+  return clean.length > max ? `${clean.slice(0, max)}…` : clean;
+};
+
 export const generateCommonIssuesSuggestions = async (
   mailbox: typeof mailboxes.$inferSelect,
 ): Promise<CommonIssuesGeneration> => {
@@ -51,9 +65,9 @@ export const generateCommonIssuesSuggestions = async (
 
   const conversationSummaries = conversations
     .map((conv) => ({
-      subject: conv.subject,
-      firstMessage: firstMessageMap.get(conv.id) || "",
-      recentMessage: conv.recentMessageText || "",
+      subject: truncate(conv.subject, SUBJECT_CHARS),
+      firstMessage: truncate(firstMessageMap.get(conv.id), MESSAGE_CHARS),
+      recentMessage: truncate(conv.recentMessageText, MESSAGE_CHARS),
       status: conv.status,
     }))
     .filter((conv) => conv.subject || conv.firstMessage || conv.recentMessage);

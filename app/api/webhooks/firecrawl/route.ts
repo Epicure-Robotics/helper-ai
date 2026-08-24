@@ -10,7 +10,6 @@ export async function POST(request: Request) {
   const crawlIdentifier = searchParams.get("identifier");
   const { type, id: firecrawlJobId, data, success, error } = body;
 
-  // eslint-disable-next-line no-console
   console.log(`Processing webhook (${type} - ${firecrawlJobId}) for crawl ${crawlIdentifier}`);
 
   const crawl = assertDefined(

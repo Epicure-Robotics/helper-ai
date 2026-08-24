@@ -143,6 +143,7 @@ export default function SavedRepliesPage() {
                           handleCopySavedReply(savedReply.content);
                         }}
                         data-testid="copy-button"
+                        aria-label={`Copy "${savedReply.name}" to clipboard`}
                       >
                         <Copy className="h-4 w-4" data-testid="copy-icon" />
                       </Button>
@@ -180,6 +181,7 @@ export default function SavedRepliesPage() {
           onClick={() => setShowCreateDialog(true)}
           variant="default"
           iconOnly
+          aria-label="New saved reply"
           className="fixed z-50 bottom-6 right-6 rounded-full text-primary-foreground dark:bg-bright dark:text-bright-foreground bg-bright hover:bg-bright/90 hover:text-background"
         >
           <Plus className="h-4 w-4" />

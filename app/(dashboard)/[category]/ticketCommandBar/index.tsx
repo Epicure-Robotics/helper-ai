@@ -11,9 +11,9 @@ import { Command } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { TemplateVariableDialog } from "@/components/ui/templateVariableDialog";
 import { useSession } from "@/components/useSession";
+import { captureExceptionAndLog } from "@/lib/shared/sentry";
 import { cn } from "@/lib/utils";
 import { replaceTemplateVariables } from "@/lib/utils/templateVariables";
-import { captureExceptionAndLog } from "@/lib/shared/sentry";
 import { RouterOutputs } from "@/trpc";
 import { api } from "@/trpc/react";
 import { useAssigneesPage } from "./assigneesPage";
@@ -80,11 +80,7 @@ export function TicketCommandBar({ open, onOpenChange, onInsertReply, onToggleCc
         const processedContent = replaceTemplateVariables(selectedSavedReply.content, values);
 
         // Insert the processed content with HTML template flag
-        onInsertReply(
-          processedContent,
-          selectedSavedReply.templateType === "html_template",
-          selectedSavedReply.name
-        );
+        onInsertReply(processedContent, selectedSavedReply.templateType === "html_template", selectedSavedReply.name);
 
         // Track usage
         incrementSavedReplyUsage(
@@ -100,7 +96,7 @@ export function TicketCommandBar({ open, onOpenChange, onInsertReply, onToggleCc
         setVariableDialogOpen(false);
         setSelectedSavedReply(null);
       } catch (error) {
-        captureExceptionAndLog("Failed to insert template");
+        captureExceptionAndLog(error, { message: "Failed to insert template" });
         toast.error("Failed to insert template");
       }
     },

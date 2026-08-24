@@ -1,6 +1,4 @@
 #!/usr/bin/env tsx
-
-/* eslint-disable no-console */
 import { db } from "@/db/client";
 import { savedReplies } from "@/db/schema";
 

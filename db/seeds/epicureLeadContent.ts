@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { faqs, issueGroups, mailboxes, savedReplies } from "@/db/schema";
-import { EPICURE_ISSUE_GROUP_SPECS } from "@/lib/epicure/issueGroupSpecs";
+import { ALL_EPICURE_ISSUE_GROUP_SPECS } from "@/lib/epicure/issueGroupSpecs";
 
 const EPICURE_FAQS = [
   "Commercial and pricing questions: Do not share manufacturing cost, unit price, revenue, or other internal financial figures in this assistant. Direct people to contact Epicure via https://epicurerobotics.com/ for quotes and commercial discussions.",
@@ -17,7 +17,8 @@ const EPICURE_FAQS = [
 ];
 
 /**
- * Idempotent Epicure defaults: six issue groups, six saved-reply templates, FAQ stubs.
+ * Idempotent Epicure defaults: issue groups (AI triage + one per website form category),
+ * their saved-reply templates, and FAQ stubs.
  * Run with mailbox already created. Assignees stay empty—set Clerk user IDs in Settings.
  */
 export async function seedEpicureLeadContent() {
@@ -35,7 +36,7 @@ export async function seedEpicureLeadContent() {
 
   const savedReplyIds: number[] = [];
 
-  for (const spec of EPICURE_ISSUE_GROUP_SPECS) {
+  for (const spec of ALL_EPICURE_ISSUE_GROUP_SPECS) {
     const [row] = await db
       .insert(savedReplies)
       .values({
@@ -49,18 +50,18 @@ export async function seedEpicureLeadContent() {
     if (row) savedReplyIds.push(row.id);
   }
 
-  if (savedReplyIds.length !== EPICURE_ISSUE_GROUP_SPECS.length) {
+  if (savedReplyIds.length !== ALL_EPICURE_ISSUE_GROUP_SPECS.length) {
     throw new Error("seedEpicureLeadContent: failed to insert all saved replies");
   }
 
-  for (let i = 0; i < EPICURE_ISSUE_GROUP_SPECS.length; i++) {
-    const spec = EPICURE_ISSUE_GROUP_SPECS[i]!;
+  for (let i = 0; i < ALL_EPICURE_ISSUE_GROUP_SPECS.length; i++) {
+    const spec = ALL_EPICURE_ISSUE_GROUP_SPECS[i]!;
     await db.insert(issueGroups).values({
       title: spec.title,
       description: spec.description,
       color: spec.color,
       assignees: [],
-      autoResponseEnabled: 0,
+      autoResponseEnabled: spec.autoResponseEnabled ? 1 : 0,
       defaultSavedReplyId: savedReplyIds[i]!,
     });
   }

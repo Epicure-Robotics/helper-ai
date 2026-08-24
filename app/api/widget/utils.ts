@@ -55,7 +55,6 @@ export async function authenticateWidget(request: Request): Promise<Authenticate
   try {
     session = verifyWidgetSession(token, mailbox);
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.warn("Invalid session token", error);
     return { success: false, error: "Invalid session token" };
   }

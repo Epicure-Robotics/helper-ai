@@ -11,6 +11,7 @@ import { checkConditionTemplates } from "./checkConditionTemplates";
 import { checkStaleJobs } from "./checkStaleJobs";
 import { cleanupDanglingFiles } from "./cleanupDanglingFiles";
 import { cleanupIssueSubgroups } from "./cleanupIssueSubgroups";
+import { cleanupStalePushSubscriptions } from "./cleanupStalePushSubscriptions";
 import { crawlWebsite } from "./crawlWebsite";
 import { createWebNotificationForAssignee } from "./createWebNotificationForAssignee";
 import { embeddingConversation } from "./embeddingConversation";
@@ -79,7 +80,7 @@ export const cronJobs = {
     cleanupDanglingFiles,
     closeInactiveConversations,
   },
-  "0 3 * * 0": { cleanupIssueSubgroups },
+  "0 3 * * 0": { cleanupIssueSubgroups, cleanupStalePushSubscriptions },
   "0 0 * * *": { renewMailboxWatches },
   "0 0 * * 0": { scheduledWebsiteCrawl },
 };

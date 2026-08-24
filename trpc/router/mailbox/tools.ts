@@ -6,8 +6,8 @@ import { assertDefined } from "@/components/utils/assert";
 import { db } from "@/db/client";
 import { toolApis, tools as toolsTable } from "@/db/schema";
 import { fetchOpenApiSpec, importToolsFromSpec } from "@/lib/data/tools";
-import { parseToolsFromOpenAPISpec } from "@/lib/tools/openApiParser";
 import { captureExceptionAndLog } from "@/lib/shared/sentry";
+import { parseToolsFromOpenAPISpec } from "@/lib/tools/openApiParser";
 import type { ToolFormatted } from "@/types/tools";
 import { mailboxProcedure } from "./procedure";
 
@@ -87,9 +87,7 @@ export const toolsRouter = {
       try {
         let openApiSpec: string;
         try {
-          openApiSpec = input.url
-            ? await fetchOpenApiSpec(input.url, input.apiKey)
-            : (input.schema ?? "");
+          openApiSpec = input.url ? await fetchOpenApiSpec(input.url, input.apiKey) : (input.schema ?? "");
         } catch (error) {
           throw new TRPCError({
             code: "BAD_REQUEST",

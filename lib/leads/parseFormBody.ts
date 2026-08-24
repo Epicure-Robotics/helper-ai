@@ -5,6 +5,8 @@ export type ParsedFormLead = {
   email: string;
   phone: string | null;
   message: string | null;
+  /** The "What's this about?" dropdown value, when the body carries it. Subject tag wins over this. */
+  category: string | null;
 };
 
 const normalize = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -41,6 +43,12 @@ export function parseFormLeadHtml(html: string): ParsedFormLead | null {
     pick(text, /contact details[^]*?phone\s*[:\-]\s*([^\n]+?)(?=\s*message\s*[:\-]|$)/is) ??
     pick(text, /phone\s*[:\-]\s*(.+?)(?=message|$)/is);
 
+  let category =
+    pick(
+      text,
+      /(?:what'?s this about|enquiry type|inquiry type|category|topic)\s*[:\-]\s*([^\n]+?)(?=\s*(?:name|email|phone|message)\s*[:\-]|$)/i,
+    ) ?? null;
+
   let message =
     pick(text, /(?:^|\n|\s)message\s*[:\-]\s*([\s\S]+?)$/im) ??
     pick(text, /new business inquiry[^]*?message\s*[:\-]\s*([\s\S]+)/is) ??
@@ -56,9 +64,12 @@ export function parseFormLeadHtml(html: string): ParsedFormLead | null {
     if (label.includes("email") && !email && val.includes("@")) email = val;
     if (label.includes("phone") && !phone) phone = val;
     if (label.includes("message") && !message) message = val;
+    if ((label.includes("about") || label.includes("enquiry") || label.includes("inquiry")) && !category) {
+      category = val;
+    }
   }
 
-  if (!email || !email.includes("@")) return null;
+  if (!email?.includes("@")) return null;
   if (!name) name = email.split("@")[0] ?? "Lead";
 
   return {
@@ -66,5 +77,6 @@ export function parseFormLeadHtml(html: string): ParsedFormLead | null {
     email: email.toLowerCase(),
     phone: phone ? normalize(phone) : null,
     message: message ? normalize(message) : null,
+    category: category ? normalize(category) : null,
   };
 }

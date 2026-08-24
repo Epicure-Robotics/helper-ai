@@ -6,7 +6,7 @@ import { authUsers } from "@/db/supabaseSchema/auth";
 import { getFullName } from "@/lib/auth/authUtils";
 import { verifyPublicConversationToken } from "@/lib/publicConversationToken";
 
-export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
+export async function GET(_request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
 
   // Verify token and extract conversation ID

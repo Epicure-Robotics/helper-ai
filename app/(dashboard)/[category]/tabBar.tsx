@@ -90,7 +90,9 @@ export const TabBar = () => {
     const updateCurrentTabTitle = () => {
       const titles = Array.from(document.querySelectorAll("title"));
       // We should fix how we deal with titles to make sure we only create one - React 19 and Next are clashing
-      updateCurrentTab({ title: titles.find((title) => title.textContent !== "Epicure Assist")?.textContent ?? "Epicure Assist" });
+      updateCurrentTab({
+        title: titles.find((title) => title.textContent !== "Epicure Assist")?.textContent ?? "Epicure Assist",
+      });
     };
 
     const titleObserver = new MutationObserver((mutations) => {

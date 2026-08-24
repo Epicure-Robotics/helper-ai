@@ -2,6 +2,7 @@ import { and, eq, isNull, relations } from "drizzle-orm";
 import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, unique, vector } from "drizzle-orm/pg-core";
 import { assertDefined } from "@/components/utils/assert";
 import { mailboxes } from "@/db/schema/mailboxes";
+import type { InboundTriage } from "@/lib/leads/inboundTriage";
 import { randomSlugField } from "../lib/random-slug-field";
 import { withTimestamps } from "../lib/with-timestamps";
 import { conversationEvents } from "./conversationEvents";
@@ -10,7 +11,6 @@ import { conversationMessages } from "./conversationMessages";
 import { issueGroups } from "./issueGroups";
 import { issueSubgroups } from "./issueSubgroups";
 import { platformCustomers } from "./platformCustomers";
-import type { InboundTriage } from "@/lib/leads/inboundTriage";
 
 export const conversations = pgTable(
   "conversations_conversation",

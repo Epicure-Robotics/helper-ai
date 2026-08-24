@@ -1,13 +1,13 @@
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
+import { EMAIL_UNDO_COUNTDOWN_SECONDS } from "@/components/constants";
 import { db } from "@/db/client";
 import { conversationMessages, conversations, gmailSupportEmails } from "@/db/schema";
-import { EMAIL_UNDO_COUNTDOWN_SECONDS } from "@/components/constants";
 import { triggerEvent } from "@/jobs/trigger";
 import { getMailbox } from "@/lib/data/mailbox";
-import { assertWithinSendThrottle } from "@/lib/leads/sendThrottle";
 import { getGmailService, getMessageMetadataById, sendGmailEmail } from "@/lib/gmail/client";
 import { formatGmailFromAddress } from "@/lib/gmail/format";
 import { convertConversationMessageToRaw } from "@/lib/gmail/lib";
+import { assertWithinSendThrottle } from "@/lib/leads/sendThrottle";
 import { captureExceptionAndThrowIfDevelopment } from "@/lib/shared/sentry";
 import { assertDefinedOrRaiseNonRetriableError } from "./utils";
 
@@ -110,12 +110,17 @@ export const postEmailToGmail = async ({ messageId: emailId }: { messageId: numb
     const result = await markSent(emailId);
 
     // Archive after email is sent so Gmail doesn't re-add the INBOX label
-    // eslint-disable-next-line no-console
-    console.log(`[postEmailToGmail] Email sent, provider: ${conversation.conversationProvider}, conversationId: ${email.conversationId}`);
+
+    console.log(
+      `[postEmailToGmail] Email sent, provider: ${conversation.conversationProvider}, conversationId: ${email.conversationId}`,
+    );
     if (conversation.conversationProvider === "gmail") {
-      // eslint-disable-next-line no-console
       console.log(`[postEmailToGmail] Triggering archive for conversation ${email.conversationId} (60s delay)`);
-      await triggerEvent("gmail/archive-thread", { conversationId: email.conversationId }, { sleepSeconds: EMAIL_UNDO_COUNTDOWN_SECONDS });
+      await triggerEvent(
+        "gmail/archive-thread",
+        { conversationId: email.conversationId },
+        { sleepSeconds: EMAIL_UNDO_COUNTDOWN_SECONDS },
+      );
     }
 
     return result;

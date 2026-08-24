@@ -64,6 +64,10 @@ export const searchConversations = async (
     ...(filters.issueGroupId ? { issueGroup: eq(conversations.issueGroupId, filters.issueGroupId) } : {}),
     ...(filters.isClassified === true ? { issueGroup: isNotNull(conversations.issueGroupId) } : {}),
     ...(filters.isClassified === false ? { issueGroup: isNull(conversations.issueGroupId) } : {}),
+    // Unindexed JSONB expression; add an index on (inbound_triage->>'importance') if the inbox grows.
+    ...(filters.priority?.length
+      ? { priority: inArray(sql`${conversations.inboundTriage}->>'importance'`, filters.priority) }
+      : {}),
   };
 
   const matches = filters.search ? await searchEmailsByKeywords(filters.search, Object.values(conversationWhere)) : [];

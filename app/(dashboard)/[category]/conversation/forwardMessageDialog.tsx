@@ -97,7 +97,8 @@ export const ForwardMessageDialog = ({
         <DialogHeader>
           <DialogTitle>Forward {includeFullThread ? "Conversation" : "Message"}</DialogTitle>
           <DialogDescription>
-            Send {includeFullThread ? "the entire conversation thread" : "this message"} to external email addresses. Multiple addresses can be separated by commas.
+            Send {includeFullThread ? "the entire conversation thread" : "this message"} to external email addresses.
+            Multiple addresses can be separated by commas.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -108,7 +109,10 @@ export const ForwardMessageDialog = ({
               onCheckedChange={(checked) => setIncludeFullThread(checked === true)}
             />
             <label htmlFor="includeFullThread" className="text-sm font-medium cursor-pointer">
-              Forward entire conversation thread ({conversation.messages?.filter(m => m.type === "message" && ["user", "staff"].includes(m.role)).length || 0} messages)
+              Forward entire conversation thread (
+              {conversation.messages?.filter((m) => m.type === "message" && ["user", "staff"].includes(m.role))
+                .length || 0}{" "}
+              messages)
             </label>
           </div>
 

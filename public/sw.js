@@ -122,3 +122,42 @@ self.addEventListener("install", (event) => {
   console.log("Service worker installed");
   self.skipWaiting();
 });
+
+/**
+ * The browser can retire this device's push subscription on its own (browser update, storage
+ * eviction, key rotation). When it does, the row in `push_subscriptions` still points at the old
+ * endpoint and this device silently stops receiving anything. Re-subscribe with the same VAPID key
+ * and hand the new endpoint to the server straight away.
+ *
+ * `fetch` from a service worker sends same-origin cookies, so the route authenticates as the
+ * employee who is signed in on this device — the new row lands against the right person.
+ */
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        const applicationServerKey =
+          event.oldSubscription?.options?.applicationServerKey ?? event.newSubscription?.options?.applicationServerKey;
+
+        const subscription =
+          event.newSubscription ??
+          (await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey }));
+
+        const keys = subscription.toJSON().keys ?? {};
+        await fetch("/api/push/resubscribe", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            oldEndpoint: event.oldSubscription?.endpoint ?? null,
+            endpoint: subscription.endpoint,
+            p256dh: keys.p256dh ?? "",
+            auth: keys.auth ?? "",
+          }),
+        });
+      } catch (error) {
+        console.error("Failed to handle pushsubscriptionchange:", error);
+      }
+    })(),
+  );
+});

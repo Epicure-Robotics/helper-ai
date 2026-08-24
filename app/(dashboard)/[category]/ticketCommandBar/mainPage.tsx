@@ -10,13 +10,12 @@ import {
   Sparkles as SparklesIcon,
   User as UserIcon,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { useConversationContext } from "@/app/(dashboard)/[category]/conversation/conversationContext";
 import { Tool } from "@/app/(dashboard)/[category]/ticketCommandBar/toolForm";
 import { isInDialog } from "@/components/isInDialog";
-import { replaceTemplateVariables } from "@/lib/utils/templateVariables";
 import { captureExceptionAndLog } from "@/lib/shared/sentry";
 import { RouterOutputs } from "@/trpc";
 import { api } from "@/trpc/react";
@@ -46,7 +45,6 @@ export const useMainPage = ({
   onShowVariableDialog,
 }: MainPageProps): { commandGroups: CommandGroup[] } => {
   const { data: conversation, updateStatus, conversationSlug } = useConversationContext();
-  const utils = api.useUtils();
 
   const { data: tools } = api.mailbox.conversations.tools.list.useQuery(
     { conversationSlug },
@@ -104,11 +102,7 @@ export const useMainPage = ({
           isHtmlTemplate: savedReply.templateType === "html_template",
           templateName: savedReply.name,
         });
-        onInsertReply(
-          savedReply.content,
-          savedReply.templateType === "html_template",
-          savedReply.name
-        );
+        onInsertReply(savedReply.content, savedReply.templateType === "html_template", savedReply.name);
         onOpenChange(false);
 
         // Track usage separately - don't fail the insertion if tracking fails
@@ -171,7 +165,10 @@ export const useMainPage = ({
               onOpenChange(false);
             },
             shortcut: "B",
-            hidden: conversation?.status === "closed" || conversation?.status === "spam" || conversation?.status === "check_back_later",
+            hidden:
+              conversation?.status === "closed" ||
+              conversation?.status === "spam" ||
+              conversation?.status === "check_back_later",
           },
           {
             id: "reopen",

@@ -1,14 +1,8 @@
 import { eq } from "drizzle-orm";
-import webpush from "web-push";
 import { db } from "@/db/client";
-import {
-  conversations,
-  pushSubscriptions,
-  userProfiles,
-  webNotifications,
-  type WebNotificationType,
-} from "@/db/schema";
+import { conversations, userProfiles, webNotifications, type WebNotificationType } from "@/db/schema";
 import { env } from "@/lib/env";
+import { isWebPushConfigured, sendPushToUser } from "@/lib/notifications/sendPush";
 import { publishToRealtime } from "@/lib/realtime/publish";
 import { captureExceptionAndLog } from "@/lib/shared/sentry";
 
@@ -145,76 +139,15 @@ export const createWebNotificationForAssignee = async (payload: CreateWebNotific
     }
 
     // Send push notifications to all user's subscribed devices
-    if (env.VAPID_PRIVATE_KEY && env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && notificationPrefs.webPushEnabled === true) {
+    if (isWebPushConfigured() && notificationPrefs.webPushEnabled === true) {
       try {
-        console.log("[createWebNotificationForAssignee] VAPID keys configured, sending push notifications");
-
-        // Ensure VAPID_MAILTO has mailto: prefix
-        const vapidMailto = env.VAPID_MAILTO
-          ? env.VAPID_MAILTO.startsWith("mailto:")
-            ? env.VAPID_MAILTO
-            : `mailto:${env.VAPID_MAILTO}`
-          : `mailto:noreply@${new URL(env.AUTH_URL).hostname}`;
-
-        webpush.setVapidDetails(vapidMailto, env.NEXT_PUBLIC_VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY);
-
-        const subscriptions = await db
-          .select()
-          .from(pushSubscriptions)
-          .where(eq(pushSubscriptions.userId, conversation.assignedToId));
-        console.log("[createWebNotificationForAssignee] Found", subscriptions.length, "push subscription(s)");
-
-        const pushPromises = subscriptions.map(async (subscription) => {
-          try {
-            console.log(
-              "[createWebNotificationForAssignee] Sending push to:",
-              `${subscription.endpoint.substring(0, 50)}...`,
-            );
-            await webpush.sendNotification(
-              {
-                endpoint: subscription.endpoint,
-                keys: {
-                  p256dh: subscription.p256dh,
-                  auth: subscription.auth,
-                },
-              },
-              JSON.stringify({
-                title,
-                body,
-                conversationId: conversation.id,
-                actionUrl,
-                notificationId: notification.id,
-              }),
-            );
-            console.log("[createWebNotificationForAssignee] Push sent successfully to subscription", subscription.id);
-
-            // Update last used timestamp
-            await db
-              .update(pushSubscriptions)
-              .set({ lastUsedAt: new Date() })
-              .where(eq(pushSubscriptions.id, subscription.id));
-
-            return { success: true, subscriptionId: subscription.id };
-          } catch (error: any) {
-            console.error(
-              "[createWebNotificationForAssignee] Push failed for subscription",
-              subscription.id,
-              ":",
-              error.message,
-            );
-            // Handle subscription errors (expired, invalid, etc.)
-            if (error.statusCode === 404 || error.statusCode === 410) {
-              // Subscription no longer valid - delete it
-              console.log("[createWebNotificationForAssignee] Deleting expired subscription", subscription.id);
-              await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, subscription.id));
-              return { success: false, subscriptionId: subscription.id, reason: "Subscription expired" };
-            }
-            captureExceptionAndLog(error);
-            return { success: false, subscriptionId: subscription.id, error: error.message };
-          }
+        const pushResults = await sendPushToUser(conversation.assignedToId, {
+          title,
+          body,
+          conversationId: conversation.id,
+          actionUrl,
+          notificationId: notification.id,
         });
-
-        const pushResults = await Promise.all(pushPromises);
         console.log("[createWebNotificationForAssignee] Push results:", JSON.stringify(pushResults));
 
         // Update deliveredAt timestamp if at least one push succeeded
@@ -225,7 +158,7 @@ export const createWebNotificationForAssignee = async (payload: CreateWebNotific
             .set({ deliveredAt: new Date() })
             .where(eq(webNotifications.id, notification.id));
         } else {
-          console.log("[createWebNotificationForAssignee] All pushes failed");
+          console.log(`[createWebNotificationForAssignee] No push delivered (${pushResults.length} device(s) tried)`);
         }
       } catch (error) {
         console.error("[createWebNotificationForAssignee] Error in push notification flow:", error);
@@ -234,7 +167,7 @@ export const createWebNotificationForAssignee = async (payload: CreateWebNotific
     } else {
       console.log(
         "[createWebNotificationForAssignee] Skipping push notifications. VAPID configured:",
-        !!(env.VAPID_PRIVATE_KEY && env.NEXT_PUBLIC_VAPID_PUBLIC_KEY),
+        isWebPushConfigured(),
         "webPushEnabled:",
         notificationPrefs.webPushEnabled === true,
       );

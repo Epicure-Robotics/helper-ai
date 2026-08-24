@@ -30,7 +30,6 @@ export function createWidgetSession(
       const decoded = verifyWidgetSession(currentToken, mailbox);
       anonymousSessionId = decoded.anonymousSessionId;
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.warn("Invalid previous session token", e);
     }
   }

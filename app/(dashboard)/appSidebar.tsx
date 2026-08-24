@@ -225,11 +225,7 @@ export function AppSidebar() {
                   {settingsExpanded &&
                     settingsItems.map((item) => (
                       <SidebarMenuItem key={item.id}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={pathname === `/settings/${item.id}`}
-                          tooltip={item.label}
-                        >
+                        <SidebarMenuButton asChild isActive={pathname === `/settings/${item.id}`} tooltip={item.label}>
                           <Link
                             href={`/settings/${item.id}`}
                             onClick={() => {

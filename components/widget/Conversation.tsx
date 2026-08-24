@@ -37,6 +37,23 @@ export type Attachment = {
   presignedUrl: string;
 };
 
+const DEFAULT_CHAT_ERROR = "Sorry, there was an error processing your request. Please try again.";
+
+/** useChat reports a non-2xx response by putting the raw body in the error message; prefer the server's wording. */
+const chatErrorMessage = (error: unknown): string => {
+  const raw = error instanceof Error ? error.message : "";
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && "error" in parsed) {
+      const message = (parsed as { error: unknown }).error;
+      if (typeof message === "string" && message.trim()) return message;
+    }
+  } catch {
+    // Not a JSON body; fall through to the generic message.
+  }
+  return DEFAULT_CHAT_ERROR;
+};
+
 export default function Conversation({
   token,
   isEpicureSiteTheme,
@@ -165,7 +182,7 @@ export default function Conversation({
         {
           id: `error_${Date.now()}`,
           role: "system",
-          content: "Sorry, there was an error processing your request. Please try again.",
+          content: chatErrorMessage(error),
         },
       ]);
     },
